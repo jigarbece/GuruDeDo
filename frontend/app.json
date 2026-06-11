@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Gurudedo",
+    "slug": "gurudedo",
+    "scheme": "gurudedo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF8F0"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png",
+      "name": "Gurudedo — Guru chahiye? Gurudedo!"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "platforms": ["ios", "android", "web"]
+  }
+}

@@ -1,0 +1,21 @@
+# Dependencies & build output
+node_modules/
+dist/
+web-build/
+.expo/
+bin/
+obj/
+
+# Environment & secrets — never commit real keys
+.env
+.env.local
+appsettings.Local.json
+
+# Editor / OS noise
+.vs/
+.vscode/
+.idea/
+*.user
+*.log
+.DS_Store
+Thumbs.db
