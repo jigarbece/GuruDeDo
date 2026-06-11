@@ -8,7 +8,7 @@ import type {
   PagedResult,
 } from "./types";
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:5000";
+const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/+$/, "");
 
 export const api = axios.create({
   baseURL: `${BASE_URL}/api`,
