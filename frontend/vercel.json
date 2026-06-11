@@ -1,5 +1,9 @@
 {
   "buildCommand": "mkdir -p node_modules/.nativewind && npx tailwindcss -i ./global.css -o ./node_modules/.nativewind/global.css.web.css --minify && npx expo export --platform web",
   "outputDirectory": "dist",
-  "framework": null
+  "framework": null,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/coach/:id", "destination": "/coach/[id].html" }
+  ]
 }
