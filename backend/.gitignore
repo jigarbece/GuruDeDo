@@ -3,3 +3,4 @@ obj/
 .env
 *.user
 appsettings.Local.json
+appsettings.Development.json
