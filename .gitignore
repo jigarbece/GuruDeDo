@@ -20,3 +20,5 @@ appsettings.Local.json
 .DS_Store
 Thumbs.db
 appsettings.Development.json
+frontend/export-*.log
+frontend/expo-start.log
