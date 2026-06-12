@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import SkillAutocomplete from "./SkillAutocomplete";
 import AreaAutocomplete from "./AreaAutocomplete";
 import { useCity, useCoords } from "../lib/city";
 
@@ -19,19 +20,23 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
 
   return (
     <View
-      style={{ zIndex: 100, position: "relative" }}
+      style={{ zIndex: 110, position: "relative" }}
       className="w-full rounded-2xl bg-white p-2 shadow-sm"
     >
-      {/* On mobile: stacked. On desktop: single row. */}
       <View className="flex-col gap-2 md:flex-row md:items-center">
-        <TextInput
+        {/* Skill input with live suggestions */}
+        <SkillAutocomplete
           value={skill}
           onChangeText={setSkill}
-          placeholder="Guitar, Yoga, Math..."
-          placeholderTextColor="#9CA3AF"
+          onSelect={(s) => {
+            setSkill(s);
+            // Don't auto-submit — let the user also fill in area.
+          }}
           onSubmitEditing={submit}
-          className="rounded-xl border border-brand-border bg-white px-4 py-3 font-body text-base text-text-dark md:flex-1"
+          placeholder="Guitar, Yoga, Math..."
         />
+
+        {/* Area / locality autocomplete */}
         <AreaAutocomplete
           value={area}
           onChangeText={setArea}
@@ -41,6 +46,7 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
           onSubmitEditing={submit}
           wrapperClassName="md:flex-1"
         />
+
         <Pressable
           onPress={submit}
           className="items-center justify-center rounded-xl bg-red px-6 py-3 active:opacity-80"

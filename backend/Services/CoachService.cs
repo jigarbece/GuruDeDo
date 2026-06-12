@@ -178,6 +178,58 @@ public class CoachService
         };
     }
 
+    // ---- Skill suggestions ----------------------------------------------------
+
+    /// <summary>
+    /// Returns up to <paramref name="limit"/> distinct skill suggestions whose text
+    /// partially matches <paramref name="q"/> (case-insensitive).
+    /// Searches: category names, and the sub_skills arrays of approved coaches.
+    /// </summary>
+    public async Task<List<string>> SuggestSkillsAsync(string q, int limit = 10)
+    {
+        if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 1)
+            return new List<string>();
+
+        var term = "%" + q.Trim().Replace("%", "\\%").Replace("_", "\\_") + "%";
+        var termEnc = Uri.EscapeDataString(term);
+
+        // 1. Category names that match.
+        var cats = await _db.SelectAsync<Category>(
+            "categories", $"name.ilike.{termEnc}&is_active=eq.true&select=name&limit=5");
+        var catNames = cats.Select(c => c.Name).Where(n => !string.IsNullOrEmpty(n)).ToList();
+
+        // 2. Collect sub_skills from coaches that contain the term in their skills text.
+        //    We pull a batch and flatten client-side — avoids needing a DB function.
+        var coaches = await _db.SelectAsync<Coach>(
+            "coaches",
+            $"select=sub_skills&status=eq.approved&sub_skills::text.ilike.{termEnc}&limit=50");
+
+        var qLower = q.Trim().ToLowerInvariant();
+        var skillSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var coach in coaches)
+        {
+            if (coach.SubSkills == null) continue;
+            foreach (var skill in coach.SubSkills)
+            {
+                if (!string.IsNullOrWhiteSpace(skill) &&
+                    skill.Contains(q.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    skillSet.Add(skill.Trim());
+                }
+            }
+        }
+
+        // Merge: category names first, then individual sub-skills, deduplicated.
+        var results = catNames
+            .Concat(skillSet.OrderBy(s => s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(limit)
+            .ToList();
+
+        return results;
+    }
+
     // ---- Helpers --------------------------------------------------------------
 
     private static void AppendCommonFilters(List<string> filters, CoachQuery q)
@@ -200,13 +252,20 @@ public class CoachService
             filters.Add("featured=eq.true");
         if (!string.IsNullOrWhiteSpace(q.Skill))
         {
-            // Case-insensitive skill search:
-            // 1. sub_skills array: cast to text and ilike match
-            // 2. Also match against bio and full_name for broader relevance
-            var skillEsc = Esc(q.Skill.ToLowerInvariant());
-            // PostgREST: use ilike on the array cast + OR against name/bio
-            filters.Add($"or=(sub_skills.cs.{{{Esc(q.Skill)}}},full_name.ilike.*{skillEsc}*,bio.ilike.*{skillEsc}*)");
-        }    }
+            // Partial, case-insensitive skill search using PostgREST's ilike operator.
+            //
+            // sub_skills is a TEXT[] column. PostgREST does not support ilike directly
+            // on arrays, but casting to text gives us a string like '{"Guitar","Keyboard"}'
+            // which we can ilike-match. We also search bio and category name.
+            //
+            // The ::text cast is expressed in PostgREST filter syntax as:
+            //   sub_skills::text=ilike.*term*
+            // Combined with bio and full_name via or().
+            var term = "%" + q.Skill.Replace("%", "\\%").Replace("_", "\\_") + "%";
+            var termEnc = Uri.EscapeDataString(term);
+            filters.Add(
+                $"or=(sub_skills::text.ilike.{termEnc},bio.ilike.{termEnc},full_name.ilike.{termEnc})");
+        }
 
     private static string Esc(string value) => HttpUtility.UrlEncode(value);
 }

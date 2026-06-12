@@ -38,6 +38,15 @@ public class CoachesController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>GET /api/coaches/suggest?q=eng — skill/category suggestions for the search box.</summary>
+    [HttpGet("suggest")]
+    public async Task<IActionResult> Suggest([FromQuery] string? q, [FromQuery] int limit = 10)
+    {
+        if (string.IsNullOrWhiteSpace(q)) return Ok(Array.Empty<string>());
+        var suggestions = await _coaches.SuggestSkillsAsync(q, Math.Clamp(limit, 1, 20));
+        return Ok(suggestions);
+    }
+
     /// <summary>GET /api/coaches/search — search by skill + area + category.</summary>
     [HttpGet("search")]
     public async Task<IActionResult> Search(

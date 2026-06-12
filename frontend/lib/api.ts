@@ -89,6 +89,13 @@ export const CoachApi = {
   ): Promise<void> {
     await api.post(`/coaches/${coachId}/enquiry`, body);
   },
+
+  /** Skill/category suggestions for the search box typeahead. */
+  async suggest(q: string): Promise<string[]> {
+    if (!q || q.trim().length < 1) return [];
+    const { data } = await api.get("/coaches/suggest", { params: { q, limit: 10 } });
+    return data as string[];
+  },
 };
 
 export const CategoryApi = {
