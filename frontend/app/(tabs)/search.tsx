@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import SearchBar from "../../components/SearchBar";
@@ -115,7 +115,7 @@ export default function Search() {
       <View className="mx-auto w-full max-w-6xl flex-col gap-6 px-4 py-6 md:flex-row">
         {/* Filters */}
         <View className="w-full md:w-64">
-          <Text className="mb-3 font-heading text-lg font-bold text-navy">Filters</Text>
+          <Text className="mb-3 font-heading text-lg font-bold text-purple">Filters</Text>
 
           <FilterGroup label="Category">
             <Chip active={!category} onPress={() => setCategory(undefined)} text="All" />
@@ -171,12 +171,12 @@ export default function Search() {
           {coaches.length === 0 && !loading ? (
             <View className="items-center rounded-2xl border border-brand-border bg-white p-10">
               <Text className="text-4xl">🔍</Text>
-              <Text className="mt-3 text-center font-heading text-lg font-bold text-navy">
+              <Text className="mt-3 text-center font-heading text-lg font-bold text-purple">
                 Koi coach nahi mila. Register karo!
               </Text>
               <Pressable
                 onPress={() => router.push("/register")}
-                className="mt-4 rounded-full bg-saffron px-6 py-3"
+                className="mt-4 rounded-full bg-red px-6 py-3"
               >
                 <Text className="font-heading font-semibold text-white">Register as Coach</Text>
               </Pressable>
@@ -193,16 +193,16 @@ export default function Search() {
 
           {loading && coaches.length > 0 && (
             <View className="py-6">
-              <ActivityIndicator color="#FF6B35" />
+              <ActivityIndicator color="#5B2C8C" />
             </View>
           )}
 
           {canLoadMore && !loading && (
             <Pressable
               onPress={() => load(page + 1, true)}
-              className="mt-6 items-center self-center rounded-full border-2 border-saffron px-8 py-3"
+              className="mt-6 items-center self-center rounded-full border-2 border-red px-8 py-3"
             >
-              <Text className="font-heading font-semibold text-saffron">Load More</Text>
+              <Text className="font-heading font-semibold text-red">Load More</Text>
             </Pressable>
           )}
         </View>
@@ -216,7 +216,7 @@ export default function Search() {
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View className="mb-5">
-      <Text className="mb-2 font-heading text-sm font-semibold text-navy">{label}</Text>
+      <Text className="mb-2 font-heading text-sm font-semibold text-purple">{label}</Text>
       <View className="flex-row flex-wrap gap-2">{children}</View>
     </View>
   );
@@ -227,10 +227,10 @@ function Chip({ text, active, onPress }: { text: string; active: boolean; onPres
     <Pressable
       onPress={onPress}
       className={`rounded-full border px-3 py-1.5 ${
-        active ? "border-saffron bg-saffron" : "border-brand-border bg-white"
+        active ? "border-red bg-red" : "border-brand-border bg-white"
       }`}
     >
-      <Text className={`text-xs ${active ? "font-semibold text-white" : "text-navy"}`}>{text}</Text>
+      <Text className={`text-xs ${active ? "font-semibold text-white" : "text-purple"}`}>{text}</Text>
     </Pressable>
   );
 }

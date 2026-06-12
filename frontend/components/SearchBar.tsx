@@ -33,7 +33,7 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
       />
       <Pressable
         onPress={submit}
-        className="items-center justify-center rounded-xl bg-saffron px-8 py-3 active:opacity-80"
+        className="items-center justify-center rounded-xl bg-red px-8 py-3 active:opacity-80"
       >
         <Text className="font-heading text-base font-semibold text-white">Search</Text>
       </Pressable>

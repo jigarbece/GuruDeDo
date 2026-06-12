@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { AdminApi, getAdminToken } from "../../lib/api";
@@ -55,7 +55,7 @@ function Gate({ onSuccess }: { onSuccess: () => void }) {
         style={{ transform: [{ translateX: shake }] }}
         className="w-full max-w-sm rounded-2xl border border-brand-border bg-white p-6"
       >
-        <Text className="text-center font-heading text-2xl font-bold text-navy">Admin Login 🔐</Text>
+        <Text className="text-center font-heading text-2xl font-bold text-purple">Admin Login 🔐</Text>
         <Text className="mt-1 text-center font-body text-sm text-text-muted">
           Enter the admin password to continue.
         </Text>
@@ -68,11 +68,11 @@ function Gate({ onSuccess }: { onSuccess: () => void }) {
           onSubmitEditing={login}
           className="mt-5 rounded-xl border border-brand-border px-4 py-3 font-body text-base text-text-dark"
         />
-        {error && <Text className="mt-2 font-body text-sm text-saffron">{error}</Text>}
+        {error && <Text className="mt-2 font-body text-sm text-red">{error}</Text>}
         <Pressable
           onPress={login}
           disabled={loading}
-          className={`mt-4 items-center rounded-xl py-3 ${loading ? "bg-saffron/60" : "bg-saffron"}`}
+          className={`mt-4 items-center rounded-xl py-3 ${loading ? "bg-red/60" : "bg-red"}`}
         >
           <Text className="font-heading font-semibold text-white">
             {loading ? "Checking…" : "Login"}
@@ -141,9 +141,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     <ScrollView className="flex-1 bg-cream">
       <View className="mx-auto w-full max-w-6xl px-4 py-8">
         <View className="flex-row items-center justify-between">
-          <Text className="font-heading text-3xl font-bold text-navy">Admin Dashboard</Text>
-          <Pressable onPress={logout} className="rounded-full border border-navy px-4 py-2">
-            <Text className="font-heading text-sm font-semibold text-navy">Logout</Text>
+          <Text className="font-heading text-3xl font-bold text-purple">Admin Dashboard</Text>
+          <Pressable onPress={logout} className="rounded-full border border-purple px-4 py-2">
+            <Text className="font-heading text-sm font-semibold text-purple">Logout</Text>
           </Pressable>
         </View>
 
@@ -168,10 +168,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 key={s}
                 onPress={() => setStatusFilter(s)}
                 className={`rounded-full border px-3 py-1.5 ${
-                  statusFilter === s ? "border-saffron bg-saffron" : "border-brand-border bg-white"
+                  statusFilter === s ? "border-red bg-red" : "border-brand-border bg-white"
                 }`}
               >
-                <Text className={`text-xs capitalize ${statusFilter === s ? "font-semibold text-white" : "text-navy"}`}>
+                <Text className={`text-xs capitalize ${statusFilter === s ? "font-semibold text-white" : "text-purple"}`}>
                   {s}
                 </Text>
               </Pressable>
@@ -182,7 +182,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         {/* List */}
         <View className="mt-5 gap-3">
           {loading ? (
-            <ActivityIndicator color="#FF6B35" className="py-8" />
+            <ActivityIndicator color="#5B2C8C" className="py-8" />
           ) : coaches.length === 0 ? (
             <View className="items-center rounded-2xl border border-brand-border bg-white p-10">
               <Text className="font-heading text-base text-text-muted">No coaches here.</Text>
@@ -193,7 +193,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <View className="flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <View className="flex-1">
                     <View className="flex-row items-center gap-2">
-                      <Text className="font-heading text-base font-bold text-navy">{c.full_name}</Text>
+                      <Text className="font-heading text-base font-bold text-purple">{c.full_name}</Text>
                       <StatusPill status={c.status} />
                       {c.featured && <Text className="text-xs text-warning">⭐</Text>}
                     </View>
@@ -254,7 +254,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 function StatCard({ label, value, accent }: { label: string; value?: number; accent?: boolean }) {
   return (
     <View className="min-w-[140px] flex-1 rounded-2xl border border-brand-border bg-white p-4">
-      <Text className={`font-heading text-3xl font-extrabold ${accent ? "text-saffron" : "text-navy"}`}>
+      <Text className={`font-heading text-3xl font-extrabold ${accent ? "text-red" : "text-purple"}`}>
         {value ?? "—"}
       </Text>
       <Text className="mt-1 font-body text-sm text-text-muted">{label}</Text>
@@ -266,9 +266,9 @@ function TabBtn({ active, onPress, text }: { active: boolean; onPress: () => voi
   return (
     <Pressable
       onPress={onPress}
-      className={`rounded-full px-5 py-2 ${active ? "bg-navy" : "border border-brand-border bg-white"}`}
+      className={`rounded-full px-5 py-2 ${active ? "bg-purple" : "border border-brand-border bg-white"}`}
     >
-      <Text className={`font-heading text-sm font-semibold ${active ? "text-white" : "text-navy"}`}>
+      <Text className={`font-heading text-sm font-semibold ${active ? "text-white" : "text-purple"}`}>
         {text}
       </Text>
     </Pressable>
@@ -279,11 +279,11 @@ function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
     approved: "bg-success/15 text-success",
     pending: "bg-warning/15 text-warning",
-    rejected: "bg-saffron/15 text-saffron",
+    rejected: "bg-red/15 text-red",
   };
   return (
     <View className={`rounded-full px-2 py-0.5 ${map[status] ?? "bg-cream"}`}>
-      <Text className={`text-xs font-semibold capitalize ${map[status]?.split(" ")[1] ?? "text-navy"}`}>
+      <Text className={`text-xs font-semibold capitalize ${map[status]?.split(" ")[1] ?? "text-purple"}`}>
         {status}
       </Text>
     </View>
@@ -305,9 +305,9 @@ function SmallBtn({
     tone === "success"
       ? "bg-success"
       : tone === "danger"
-      ? "bg-saffron"
+      ? "bg-red"
       : "border border-brand-border bg-white";
-  const textCls = tone === "neutral" ? "text-navy" : "text-white";
+  const textCls = tone === "neutral" ? "text-purple" : "text-white";
   return (
     <Pressable onPress={onPress} disabled={busy} className={`rounded-lg px-3 py-2 ${cls} ${busy ? "opacity-50" : ""}`}>
       <Text className={`text-xs font-semibold ${textCls}`}>{text}</Text>

@@ -24,7 +24,7 @@ export default function CoachCard({ coach, onWhatsAppClick }: Props) {
             className="h-14 w-14 rounded-full"
           />
         ) : (
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-saffron">
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-purple">
             <Text className="font-heading text-lg font-bold text-white">
               {initials(coach.full_name)}
             </Text>
@@ -32,7 +32,7 @@ export default function CoachCard({ coach, onWhatsAppClick }: Props) {
         )}
         <View className="flex-1">
           <View className="flex-row items-center gap-1">
-            <Text className="font-heading text-lg font-bold text-navy" numberOfLines={1}>
+            <Text className="font-heading text-lg font-bold text-purple" numberOfLines={1}>
               {coach.full_name}
             </Text>
             {coach.status === "approved" && <Text className="text-sm">✅</Text>}
@@ -42,8 +42,8 @@ export default function CoachCard({ coach, onWhatsAppClick }: Props) {
           </Text>
         </View>
         {coach.featured && (
-          <View className="rounded-full bg-warning/20 px-2 py-1">
-            <Text className="text-xs font-semibold text-warning">⭐ Featured</Text>
+          <View className="rounded-full bg-pink/15 px-2 py-1">
+            <Text className="text-xs font-semibold text-pink">⭐ Featured</Text>
           </View>
         )}
       </View>
@@ -52,12 +52,12 @@ export default function CoachCard({ coach, onWhatsAppClick }: Props) {
       {shownSkills.length > 0 && (
         <View className="flex-row flex-wrap gap-1.5 px-4">
           {shownSkills.map((s) => (
-            <View key={s} className="rounded-full bg-cream px-2.5 py-1">
-              <Text className="text-xs text-navy">{s}</Text>
+            <View key={s} className="rounded-full bg-surface px-2.5 py-1">
+              <Text className="text-xs text-purple">{s}</Text>
             </View>
           ))}
           {extra > 0 && (
-            <View className="rounded-full bg-cream px-2.5 py-1">
+            <View className="rounded-full bg-surface px-2.5 py-1">
               <Text className="text-xs text-text-muted">+{extra} more</Text>
             </View>
           )}
@@ -69,15 +69,15 @@ export default function CoachCard({ coach, onWhatsAppClick }: Props) {
         <Text className="font-body text-sm text-text-dark">
           📍 {coach.area}, {coach.city}
         </Text>
-        <Text className="font-body text-sm font-semibold text-text-dark">
+        <Text className="font-body text-sm font-semibold text-red">
           💰 {formatFee(coach)}
         </Text>
         <View className="mt-1 flex-row flex-wrap gap-1.5">
-          <View className="rounded-full bg-navy/10 px-2.5 py-1">
-            <Text className="text-xs text-navy">🎓 {coach.experience_years} yrs</Text>
+          <View className="rounded-full bg-teal/15 px-2.5 py-1">
+            <Text className="text-xs text-teal">🎓 {coach.experience_years} yrs</Text>
           </View>
-          <View className="rounded-full bg-navy/10 px-2.5 py-1">
-            <Text className="text-xs text-navy">{teachingModeLabel(coach.teaching_mode)}</Text>
+          <View className="rounded-full bg-purple/10 px-2.5 py-1">
+            <Text className="text-xs text-purple">{teachingModeLabel(coach.teaching_mode)}</Text>
           </View>
           {coach.demo_available && (
             <View className="rounded-full bg-success/15 px-2.5 py-1">
@@ -91,9 +91,9 @@ export default function CoachCard({ coach, onWhatsAppClick }: Props) {
       <View className="flex-row gap-2 p-4 pt-0">
         <Pressable
           onPress={() => router.push(`/coach/${coach.id}`)}
-          className="flex-1 items-center rounded-xl border border-navy py-2.5 active:opacity-80"
+          className="flex-1 items-center rounded-xl border border-purple py-2.5 active:opacity-80"
         >
-          <Text className="font-heading text-sm font-semibold text-navy">View Profile</Text>
+          <Text className="font-heading text-sm font-semibold text-purple">View Profile</Text>
         </Pressable>
         <Pressable
           onPress={() => onWhatsAppClick(coach)}

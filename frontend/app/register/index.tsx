@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import Footer from "../../components/Footer";
@@ -164,7 +164,7 @@ export default function Register() {
       <ScrollView className="flex-1 bg-cream">
         <View className="mx-auto w-full max-w-2xl items-center px-4 py-16">
           <Text className="text-6xl">🎉</Text>
-          <Text className="mt-4 text-center font-heading text-2xl font-bold text-navy">
+          <Text className="mt-4 text-center font-heading text-2xl font-bold text-purple">
             Profile submitted!
           </Text>
           <Text className="mt-2 text-center font-body text-base text-text-muted">
@@ -172,9 +172,9 @@ export default function Register() {
           </Text>
           <Pressable
             onPress={() => router.push(`/coach/${done.id}`)}
-            className="mt-6 rounded-full border-2 border-saffron px-6 py-3"
+            className="mt-6 rounded-full border-2 border-red px-6 py-3"
           >
-            <Text className="font-heading font-semibold text-saffron">
+            <Text className="font-heading font-semibold text-red">
               Share your profile link (pending)
             </Text>
           </Pressable>
@@ -190,7 +190,7 @@ export default function Register() {
   return (
     <ScrollView className="flex-1 bg-cream">
       <View className="mx-auto w-full max-w-2xl px-4 py-8">
-        <Text className="font-heading text-3xl font-bold text-navy">Register as Coach 🎓</Text>
+        <Text className="font-heading text-3xl font-bold text-purple">Register as Coach 🎓</Text>
         <Text className="mt-1 font-body text-text-muted">
           Free registration. Approval in ~24 hours.
         </Text>
@@ -199,10 +199,10 @@ export default function Register() {
         <View className="mt-6 flex-row items-center gap-2">
           {STEPS.map((label, i) => (
             <View key={label} className="flex-1">
-              <View className={`h-1.5 rounded-full ${i <= step ? "bg-saffron" : "bg-brand-border"}`} />
+              <View className={`h-1.5 rounded-full ${i <= step ? "bg-red" : "bg-brand-border"}`} />
               <Text
                 className={`mt-1.5 text-center text-xs ${
-                  i === step ? "font-semibold text-saffron" : "text-text-muted"
+                  i === step ? "font-semibold text-red" : "text-text-muted"
                 }`}
               >
                 {label}
@@ -231,7 +231,7 @@ export default function Register() {
               >
                 <View
                   className={`h-5 w-5 items-center justify-center rounded border ${
-                    form.sameAsPhone ? "border-saffron bg-saffron" : "border-brand-border bg-white"
+                    form.sameAsPhone ? "border-red bg-red" : "border-brand-border bg-white"
                   }`}
                 >
                   {form.sameAsPhone && <Text className="text-xs text-white">✓</Text>}
@@ -288,7 +288,7 @@ export default function Register() {
                       onPress={() => set("area", a)}
                       className="rounded-full bg-cream px-3 py-1"
                     >
-                      <Text className="text-xs text-navy">{a}</Text>
+                      <Text className="text-xs text-purple">{a}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -314,13 +314,13 @@ export default function Register() {
                       onPress={() => set("categoryId", c.id ?? "")}
                       className={`rounded-full border px-3 py-1.5 ${
                         form.categoryId === c.id
-                          ? "border-saffron bg-saffron"
+                          ? "border-red bg-red"
                           : "border-brand-border bg-white"
                       }`}
                     >
                       <Text
                         className={`text-xs ${
-                          form.categoryId === c.id ? "font-semibold text-white" : "text-navy"
+                          form.categoryId === c.id ? "font-semibold text-white" : "text-purple"
                         }`}
                       >
                         {c.icon} {c.name}
@@ -339,7 +339,7 @@ export default function Register() {
                     onSubmitEditing={addSkill}
                     style={{ flex: 1 }}
                   />
-                  <Pressable onPress={addSkill} className="justify-center rounded-xl bg-navy px-4">
+                  <Pressable onPress={addSkill} className="justify-center rounded-xl bg-purple px-4">
                     <Text className="font-heading font-semibold text-white">Add</Text>
                   </Pressable>
                 </View>
@@ -348,10 +348,10 @@ export default function Register() {
                     <Pressable
                       key={s}
                       onPress={() => set("subSkills", form.subSkills.filter((x) => x !== s))}
-                      className="flex-row items-center gap-1 rounded-full bg-saffron/15 px-3 py-1"
+                      className="flex-row items-center gap-1 rounded-full bg-red/15 px-3 py-1"
                     >
-                      <Text className="text-xs font-semibold text-saffron">{s}</Text>
-                      <Text className="text-xs text-saffron">✕</Text>
+                      <Text className="text-xs font-semibold text-red">{s}</Text>
+                      <Text className="text-xs text-red">✕</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -439,7 +439,7 @@ export default function Register() {
 
           {step === 3 && (
             <View className="gap-3">
-              <Text className="font-heading text-lg font-bold text-navy">Preview</Text>
+              <Text className="font-heading text-lg font-bold text-purple">Preview</Text>
               <PreviewRow label="Name" value={form.fullName} />
               <PreviewRow label="Category" value={categoryName} />
               <PreviewRow label="Sub-skills" value={form.subSkills.join(", ")} />
@@ -468,27 +468,27 @@ export default function Register() {
           )}
 
           {error && (
-            <View className="mt-4 rounded-xl bg-saffron/10 px-4 py-3">
-              <Text className="font-body text-sm text-saffron">{error}</Text>
+            <View className="mt-4 rounded-xl bg-red/10 px-4 py-3">
+              <Text className="font-body text-sm text-red">{error}</Text>
             </View>
           )}
 
           {/* Nav buttons */}
           <View className="mt-6 flex-row gap-3">
             {step > 0 && (
-              <Pressable onPress={back} className="flex-1 items-center rounded-xl border border-navy py-3">
-                <Text className="font-heading font-semibold text-navy">Back</Text>
+              <Pressable onPress={back} className="flex-1 items-center rounded-xl border border-purple py-3">
+                <Text className="font-heading font-semibold text-purple">Back</Text>
               </Pressable>
             )}
             {step < STEPS.length - 1 ? (
-              <Pressable onPress={next} className="flex-1 items-center rounded-xl bg-saffron py-3">
+              <Pressable onPress={next} className="flex-1 items-center rounded-xl bg-red py-3">
                 <Text className="font-heading font-semibold text-white">Continue</Text>
               </Pressable>
             ) : (
               <Pressable
                 onPress={submit}
                 disabled={submitting}
-                className={`flex-1 items-center rounded-xl py-3 ${submitting ? "bg-saffron/60" : "bg-saffron"}`}
+                className={`flex-1 items-center rounded-xl py-3 ${submitting ? "bg-red/60" : "bg-red"}`}
               >
                 <Text className="font-heading font-semibold text-white">
                   {submitting ? "Submitting…" : "Submit for Approval"}
@@ -516,7 +516,7 @@ function Field({
 }) {
   return (
     <View style={style}>
-      <Text className="mb-1.5 font-heading text-sm font-semibold text-navy">{label}</Text>
+      <Text className="mb-1.5 font-heading text-sm font-semibold text-purple">{label}</Text>
       {children}
     </View>
   );
@@ -552,10 +552,10 @@ function ChipRow({
             key={o.value}
             onPress={() => onToggle(o.value)}
             className={`rounded-full border px-3 py-1.5 ${
-              active ? "border-saffron bg-saffron" : "border-brand-border bg-white"
+              active ? "border-red bg-red" : "border-brand-border bg-white"
             }`}
           >
-            <Text className={`text-xs ${active ? "font-semibold text-white" : "text-navy"}`}>
+            <Text className={`text-xs ${active ? "font-semibold text-white" : "text-purple"}`}>
               {multi && active ? "✓ " : ""}
               {o.label}
             </Text>

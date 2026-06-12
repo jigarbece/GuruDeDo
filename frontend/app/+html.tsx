@@ -2,7 +2,8 @@ import { ScrollViewStyleReset } from "expo-router/html";
 import type { PropsWithChildren } from "react";
 
 // Root HTML document for every web page during static rendering.
-// Loads brand Google Fonts (Poppins + Inter) and sets the page background.
+// Loads brand Google Fonts (Poppins + Inter) and sets the page background
+// to the soft cream from the logo.
 export default function Root({ children }: PropsWithChildren) {
   return (
     <html lang="en">
@@ -13,11 +14,12 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
-        <title>Gurudedo — Guru chahiye? Gurudedo!</title>
+        <title>Gurudedo — Find the Right Teacher. Learn Any Skill.</title>
         <meta
           name="description"
           content="Find the perfect coach for any skill — near you, right now. Academics, music, dance, yoga, art, cooking, beauty, coding & more in Ahmedabad."
         />
+        <meta name="theme-color" content="#5B2C8C" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
@@ -33,7 +35,7 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 const BASE_CSS = `
-  html, body { background-color: #FFF8F0; }
+  html, body { background-color: #FFFBF5; }
   body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
   * { box-sizing: border-box; }
 `;

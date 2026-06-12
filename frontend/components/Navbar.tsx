@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import { Link, usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
@@ -24,10 +24,20 @@ export default function Navbar() {
       <View className="mx-auto w-full max-w-6xl flex-row items-center justify-between px-4 py-3">
         {/* Logo */}
         <Link href="/" asChild>
-          <Pressable>
-            <Text className="font-heading text-2xl font-bold text-saffron">
-              guru<Text className="text-navy">•</Text>de<Text className="text-navy">•</Text>do
-            </Text>
+          <Pressable className="flex-row items-center gap-2">
+            <Image
+              source={require("../assets/logo.png")}
+              style={{ width: 44, height: 44 }}
+              resizeMode="contain"
+            />
+            <View>
+              <Text className="font-heading text-xl font-extrabold text-purple">
+                Gurudedo
+              </Text>
+              <Text className="font-body text-[10px] text-text-muted">
+                Find the Right Teacher
+              </Text>
+            </View>
           </Pressable>
         </Link>
 
@@ -38,7 +48,7 @@ export default function Navbar() {
               <Pressable>
                 <Text
                   className={`font-body text-base ${
-                    isActive(l.href) ? "font-semibold text-saffron" : "text-navy"
+                    isActive(l.href) ? "font-semibold text-purple" : "text-text-dark"
                   }`}
                 >
                   {l.label}
@@ -53,15 +63,15 @@ export default function Navbar() {
           </Link>
           <Pressable
             onPress={() => router.push("/register")}
-            className="rounded-full border-2 border-saffron px-5 py-2"
+            className="rounded-full bg-red px-5 py-2 active:opacity-80"
           >
-            <Text className="font-heading font-semibold text-saffron">Register as Coach</Text>
+            <Text className="font-heading font-semibold text-white">Register as Coach</Text>
           </Pressable>
         </View>
 
         {/* Mobile hamburger */}
         <Pressable className="md:hidden" onPress={() => setOpen((v) => !v)}>
-          <Ionicons name={open ? "close" : "menu"} size={28} color={Colors.navy} />
+          <Ionicons name={open ? "close" : "menu"} size={28} color={Colors.purple} />
         </Pressable>
       </View>
 
@@ -73,7 +83,7 @@ export default function Navbar() {
               <Pressable onPress={() => setOpen(false)} className="py-3">
                 <Text
                   className={`font-body text-base ${
-                    isActive(l.href) ? "font-semibold text-saffron" : "text-navy"
+                    isActive(l.href) ? "font-semibold text-purple" : "text-text-dark"
                   }`}
                 >
                   {l.label}

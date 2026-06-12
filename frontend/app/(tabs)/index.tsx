@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import SearchBar from "../../components/SearchBar";
 import CategoryGrid from "../../components/CategoryGrid";
@@ -35,16 +35,24 @@ export default function Home() {
   return (
     <ScrollView className="flex-1 bg-cream" contentContainerStyle={{ paddingBottom: 0 }}>
       {/* B. Hero */}
-      <View className="items-center px-4 pb-10 pt-12">
+      <View className="items-center px-4 pb-10 pt-10">
         <View className="w-full max-w-3xl items-center">
-          <Text className="font-heading text-4xl font-bold text-navy md:text-5xl">
+          <Image
+            source={require("../../assets/logo.png")}
+            style={{ width: 140, height: 140 }}
+            resizeMode="contain"
+          />
+          <Text className="mt-3 font-heading text-4xl font-bold text-purple md:text-5xl">
             Guru chahiye?
           </Text>
-          <Text className="font-heading text-5xl font-extrabold text-saffron md:text-7xl">
+          <Text className="font-heading text-5xl font-extrabold text-red md:text-7xl">
             Gurudedo!
           </Text>
-          <Text className="mt-3 text-center font-body text-base text-text-muted md:text-lg">
-            Find the perfect coach for any skill — near you, right now.
+          <Text className="mt-3 text-center font-heading text-base font-semibold text-teal md:text-lg">
+            Find the Right Teacher. Learn Any Skill.
+          </Text>
+          <Text className="mt-2 text-center font-body text-sm text-text-muted md:text-base">
+            Search coaches for any skill — near you, right now.
           </Text>
           <View className="mt-6 w-full">
             <SearchBar onSearch={goSearch} />
@@ -83,7 +91,7 @@ export default function Home() {
             ))}
           </ScrollView>
           <Pressable onPress={() => router.push("/search")} className="mt-4">
-            <Text className="font-heading font-semibold text-saffron">View All →</Text>
+            <Text className="font-heading font-semibold text-red">View All →</Text>
           </Pressable>
         </Section>
       )}
@@ -96,7 +104,7 @@ export default function Home() {
       </Section>
 
       {/* F. Stats bar */}
-      <View className="mt-6 w-full bg-navy px-4 py-10">
+      <View className="mt-6 w-full bg-purple px-4 py-10">
         <View className="mx-auto w-full max-w-5xl flex-row flex-wrap justify-around gap-6">
           <Stat number="500+" label="Coaches" />
           <Stat number="12" label="Skill Categories" />
@@ -107,7 +115,7 @@ export default function Home() {
 
       {/* G. CTA banner */}
       <View className="items-center px-4 py-12">
-        <View className="w-full max-w-3xl items-center rounded-3xl bg-saffron px-6 py-10">
+        <View className="w-full max-w-3xl items-center rounded-3xl bg-red px-6 py-10">
           <Text className="text-center font-heading text-2xl font-bold text-white md:text-3xl">
             Aap bhi coach hain? 🎓
           </Text>
@@ -118,7 +126,7 @@ export default function Home() {
             onPress={() => router.push("/register")}
             className="mt-5 rounded-full bg-white px-8 py-3 active:opacity-80"
           >
-            <Text className="font-heading text-base font-bold text-saffron">Register Now →</Text>
+            <Text className="font-heading text-base font-bold text-red">Register Now →</Text>
           </Pressable>
         </View>
       </View>
@@ -132,7 +140,7 @@ export default function Home() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="items-center px-4 py-8">
-      <Text className="mb-6 text-center font-heading text-2xl font-bold text-navy md:text-3xl">
+      <Text className="mb-6 text-center font-heading text-2xl font-bold text-purple md:text-3xl">
         {title}
       </Text>
       <View className="w-full items-center">{children}</View>
@@ -143,7 +151,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Stat({ number, label }: { number: string; label: string }) {
   return (
     <View className="items-center">
-      <Text className="font-heading text-3xl font-extrabold text-saffron">{number}</Text>
+      <Text className="font-heading text-3xl font-extrabold text-pink">{number}</Text>
       <Text className="mt-1 font-body text-sm text-white/80">{label}</Text>
     </View>
   );
