@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { searchPlaces, type PlaceSuggestion } from "../lib/places";
+import type { Coords } from "../lib/city";
 
 interface Props {
   value: string;
@@ -8,6 +9,12 @@ interface Props {
   placeholder?: string;
   /** When set, suggestions in this city are surfaced first. */
   cityBias?: string;
+  /**
+   * Lat/lon used to bias Photon results by proximity. When provided, results
+   * near these coords win — this is what makes suggestions feel "nearby" even
+   * when the city label is a suburb the metro-centroid map doesn't know.
+   */
+  coordBias?: Coords | null;
   onSubmitEditing?: () => void;
   /** Extra Tailwind classes for the wrapper (e.g. flex sizing). */
   wrapperClassName?: string;
@@ -26,6 +33,7 @@ export default function AreaAutocomplete({
   onChangeText,
   placeholder,
   cityBias,
+  coordBias,
   onSubmitEditing,
   wrapperClassName,
 }: Props) {
@@ -56,7 +64,11 @@ export default function AreaAutocomplete({
       const controller = new AbortController();
       abortRef.current = controller;
       try {
-        const list = await searchPlaces(value, cityBias, controller.signal);
+        const list = await searchPlaces(
+          value,
+          { cityBias, coordBias },
+          controller.signal,
+        );
         if (!controller.signal.aborted) {
           setSuggestions(list);
           setOpen(list.length > 0);
@@ -71,7 +83,7 @@ export default function AreaAutocomplete({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, cityBias]);
+  }, [value, cityBias, coordBias?.lat, coordBias?.lon]);
 
   const pick = (s: PlaceSuggestion) => {
     setJustPicked(true);
@@ -83,7 +95,7 @@ export default function AreaAutocomplete({
   return (
     <View
       // position: relative + zIndex so the dropdown sits above siblings.
-      style={{ position: "relative", zIndex: 50 }}
+      style={{ position: "relative", zIndex: 100 }}
       className={wrapperClassName ?? "flex-1"}
     >
       <TextInput
@@ -115,7 +127,7 @@ export default function AreaAutocomplete({
             top: "100%",
             left: 0,
             right: 0,
-            zIndex: 50,
+            zIndex: 1000,
             marginTop: 4,
             // Shadow for visual separation (web-only — RN ignores boxShadow)
             shadowColor: "#000",

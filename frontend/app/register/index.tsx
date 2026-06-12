@@ -12,7 +12,7 @@ import {
   TEACHING_MODES,
   CATEGORIES,
 } from "../../constants/categories";
-import { useCity } from "../../lib/city";
+import { useCity, useCoords } from "../../lib/city";
 import { formatFee, teachingModeLabel } from "../../lib/format";
 import AreaAutocomplete from "../../components/AreaAutocomplete";
 import type { Category } from "../../lib/types";
@@ -66,6 +66,7 @@ const STEPS = ["Basic Info", "Location", "Skill & Teaching", "Preview & Submit"]
 export default function Register() {
   const router = useRouter();
   const currentCity = useCity();
+  const coords = useCoords();
   const [categories, setCategories] = useState<Category[]>(CATEGORIES as Category[]);
   const [step, setStep] = useState(0);
   // Default the registration's city to whatever the user has selected globally,
@@ -306,6 +307,7 @@ export default function Register() {
                   onChangeText={(v) => set("area", v)}
                   placeholder="Start typing your area…"
                   cityBias={form.city}
+                  coordBias={coords}
                   wrapperClassName=""
                 />
                 {getAreasForCity(form.city).length > 0 && (

@@ -2,6 +2,8 @@
 // Free, no API key, CORS-enabled, backed by OpenStreetMap. Good coverage for
 // Indian metros; sparser for tier-3 towns (but the user can still type freely).
 
+import { CITY_COORDS, type Coords } from "./city";
+
 export interface PlaceSuggestion {
   name: string;          // primary label, e.g. "Bopal"
   city?: string;
@@ -11,32 +13,21 @@ export interface PlaceSuggestion {
   fullLabel: string;
 }
 
-const ENDPOINT = "https://photon.komoot.io/api/";
+export interface SearchOptions {
+  /**
+   * Lat/lon used as the primary bias. When set, Photon orders results by
+   * proximity to this point — this is what makes suggestions feel "nearby".
+   */
+  coordBias?: Coords | null;
+  /**
+   * Fallback city name. Used only if coordBias is missing AND the city is in
+   * our known-metros map. Also used to push results in this city to the top
+   * after fetch (defensive — Photon's spatial bias usually does this already).
+   */
+  cityBias?: string;
+}
 
-// Approximate centroids for the major Indian cities we list. Used to bias
-// Photon results so typing "Vesu" while in Surat surfaces Surat hits first.
-const CITY_COORDS: Record<string, [number, number]> = {
-  Ahmedabad: [23.0225, 72.5714],
-  Mumbai: [19.0760, 72.8777],
-  Pune: [18.5204, 73.8567],
-  Bangalore: [12.9716, 77.5946],
-  Hyderabad: [17.3850, 78.4867],
-  Chennai: [13.0827, 80.2707],
-  Delhi: [28.7041, 77.1025],
-  Gurgaon: [28.4595, 77.0266],
-  Noida: [28.5355, 77.3910],
-  Kolkata: [22.5726, 88.3639],
-  Jaipur: [26.9124, 75.7873],
-  Surat: [21.1702, 72.8311],
-  Vadodara: [22.3072, 73.1812],
-  Rajkot: [22.3039, 70.8022],
-  Indore: [22.7196, 75.8577],
-  Bhopal: [23.2599, 77.4126],
-  Nagpur: [21.1458, 79.0882],
-  Lucknow: [26.8467, 80.9462],
-  Chandigarh: [30.7333, 76.7794],
-  Kochi: [9.9312, 76.2673],
-};
+const ENDPOINT = "https://photon.komoot.io/api/";
 
 // Place types we consider relevant. Streets/POIs are excluded so the dropdown
 // doesn't fill up with shop addresses.
@@ -45,26 +36,31 @@ const ALLOWED_TYPES = new Set([
   "village", "town", "hamlet", "city", "district",
 ]);
 
-// In-memory cache, keyed by query + city bias. Cleared on page reload.
+// In-memory cache, keyed by query + bias. Cleared on page reload.
 const cache = new Map<string, PlaceSuggestion[]>();
 
 export async function searchPlaces(
   query: string,
-  cityBias?: string,
+  options: SearchOptions = {},
   signal?: AbortSignal,
 ): Promise<PlaceSuggestion[]> {
   const q = query.trim();
   if (q.length < 2) return [];
 
-  const cacheKey = `${q.toLowerCase()}|${cityBias ?? ""}`;
+  // Prefer explicit coords; fall back to the known-city centroid; otherwise no bias.
+  const bias: Coords | null =
+    options.coordBias ??
+    (options.cityBias ? CITY_COORDS[options.cityBias] ?? null : null);
+
+  const cacheKey =
+    `${q.toLowerCase()}|${bias?.lat ?? ""}|${bias?.lon ?? ""}|${options.cityBias ?? ""}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
   const params = new URLSearchParams({ q, lang: "en", limit: "15" });
-  const coords = cityBias ? CITY_COORDS[cityBias] : undefined;
-  if (coords) {
-    params.set("lat", String(coords[0]));
-    params.set("lon", String(coords[1]));
+  if (bias) {
+    params.set("lat", String(bias.lat));
+    params.set("lon", String(bias.lon));
   }
 
   try {
@@ -80,9 +76,9 @@ export async function searchPlaces(
       const type: string = p.type ?? p.osm_value ?? "";
 
       const cityMatchesBias =
-        !!cityBias &&
-        (p.city?.toLowerCase() === cityBias.toLowerCase() ||
-          p.county?.toLowerCase() === cityBias.toLowerCase());
+        !!options.cityBias &&
+        (p.city?.toLowerCase() === options.cityBias.toLowerCase() ||
+          p.county?.toLowerCase() === options.cityBias.toLowerCase());
 
       // Inside the user's city, accept anything (even neighborhoods Photon
       // tagged loosely). Outside it, restrict to the standard "place" types.
@@ -108,8 +104,10 @@ export async function searchPlaces(
       return true;
     });
 
-    // City-matched suggestions first, then everything else.
-    const biasLower = cityBias?.toLowerCase();
+    // City-matched suggestions first, then everything else. Photon's spatial
+    // bias usually handles this, but our cityBias is more authoritative for
+    // the cases where the user picked a city manually.
+    const biasLower = options.cityBias?.toLowerCase();
     deduped.sort((a, b) => {
       const aBiased = biasLower && a.city?.toLowerCase() === biasLower ? 1 : 0;
       const bBiased = biasLower && b.city?.toLowerCase() === biasLower ? 1 : 0;

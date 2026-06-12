@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import AreaAutocomplete from "./AreaAutocomplete";
-import { useCity } from "../lib/city";
+import { useCity, useCoords } from "../lib/city";
 
 interface Props {
   initialSkill?: string;
@@ -13,11 +13,17 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
   const [skill, setSkill] = useState(initialSkill);
   const [area, setArea] = useState(initialArea);
   const city = useCity();
+  const coords = useCoords();
 
   const submit = () => onSearch(skill.trim(), area.trim());
 
   return (
-    <View className="w-full flex-col gap-3 rounded-2xl bg-white p-3 shadow-sm md:flex-row md:items-center">
+    // zIndex on the wrapper creates a stacking context so the autocomplete
+    // dropdown floats above any siblings below the SearchBar (e.g. the
+    // "Showing coaches in…" line, or the filters grid on the search page).
+    <View
+      style={{ zIndex: 100, position: "relative" }}
+      className="w-full flex-col gap-3 rounded-2xl bg-white p-3 shadow-sm md:flex-row md:items-center">
       <TextInput
         value={skill}
         onChangeText={setSkill}
@@ -31,6 +37,7 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
         onChangeText={setArea}
         placeholder="Your area or locality"
         cityBias={city}
+        coordBias={coords}
         onSubmitEditing={submit}
         wrapperClassName="flex-1"
       />
