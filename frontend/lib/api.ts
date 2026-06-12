@@ -7,13 +7,39 @@ import type {
   CoachRegisterPayload,
   PagedResult,
 } from "./types";
+import type { LocationSelection } from "./location";
 
 const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/+$/, "");
+
+/**
+ * Repeated-key serializer (e.g. `?loc=city:Ahmedabad&loc=area:Bopal|Ahmedabad`).
+ * axios's default serializer emits arrays as `loc[]=…` which ASP.NET model-binds
+ * differently. The backend reads `string[]? loc` which expects repeated keys.
+ */
+function serializeRepeating(params: Record<string, unknown>): string {
+  const parts: string[] = [];
+  const push = (k: string, v: unknown) => {
+    if (v === undefined || v === null || v === "") return;
+    parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  };
+  for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v)) v.forEach((item) => push(k, item));
+    else push(k, v);
+  }
+  return parts.join("&");
+}
 
 export const api = axios.create({
   baseURL: `${BASE_URL}/api`,
   timeout: 15000,
+  paramsSerializer: { serialize: serializeRepeating },
 });
+
+/** Encode one LocationSelection as the `loc` query value the backend expects. */
+export function encodeLocationParam(loc: LocationSelection): string {
+  if (loc.type === "area" && loc.area) return `area:${loc.area}|${loc.city}`;
+  return `city:${loc.city}`;
+}
 
 // ---- Admin token storage (web localStorage; falls back to in-memory) ----------
 const TOKEN_KEY = "gurudedo_admin_token";
@@ -43,9 +69,12 @@ function authHeader() {
 
 export interface CoachFilters {
   skill?: string;
+  /** New multi-location filter — repeated `loc` params. Each entry matches any. */
+  locations?: LocationSelection[];
+  /** Legacy single-location fields — still honoured by the backend for now. */
   area?: string;
-  city?: string;           // undefined = no city filter (all cities)
-  locationType?: "city" | "area";  // drives backend location logic
+  city?: string;
+  locationType?: "city" | "area";
   category?: string;       // slug
   minFee?: number;
   maxFee?: number;
@@ -57,14 +86,24 @@ export interface CoachFilters {
   pageSize?: number;
 }
 
+/** Flatten a CoachFilters into a plain params object the serializer can handle. */
+function flattenFilters(f: CoachFilters): Record<string, unknown> {
+  const { locations, ...rest } = f;
+  const out: Record<string, unknown> = { ...rest };
+  if (locations && locations.length > 0) {
+    out.loc = locations.map(encodeLocationParam);
+  }
+  return out;
+}
+
 export const CoachApi = {
   async list(filters: CoachFilters = {}): Promise<PagedResult<Coach>> {
-    const { data } = await api.get("/coaches", { params: filters });
+    const { data } = await api.get("/coaches", { params: flattenFilters(filters) });
     return data;
   },
 
   async search(filters: CoachFilters = {}): Promise<PagedResult<Coach>> {
-    const { data } = await api.get("/coaches/search", { params: filters });
+    const { data } = await api.get("/coaches/search", { params: flattenFilters(filters) });
     return data;
   },
 

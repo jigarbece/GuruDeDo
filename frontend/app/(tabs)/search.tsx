@@ -13,8 +13,45 @@ import CoachCard from "../../components/CoachCard";
 import Footer from "../../components/Footer";
 import { CategoryApi, CoachApi, buildWhatsAppLink, type CoachFilters } from "../../lib/api";
 import { CATEGORIES, TEACHING_MODES } from "../../constants/categories";
-import type { LocationSelection } from "../../components/LocationAutocomplete";
+import type { LocationSelection } from "../../lib/location";
 import type { Category, Coach } from "../../lib/types";
+
+/**
+ * URL <-> LocationSelection[] serialization.
+ * We encode as `loc=city:Ahmedabad&loc=area:Bopal|Ahmedabad` — same format the
+ * backend expects, so the URL is also a valid API query.
+ */
+function parseLocParams(loc: string | string[] | undefined): LocationSelection[] {
+  if (!loc) return [];
+  const arr = Array.isArray(loc) ? loc : [loc];
+  const out: LocationSelection[] = [];
+  for (const raw of arr) {
+    const s = (raw ?? "").toString().trim();
+    if (!s) continue;
+    if (s.startsWith("city:")) {
+      const city = s.slice(5).trim();
+      if (city) out.push({ type: "city", city, displayName: city });
+    } else if (s.startsWith("area:")) {
+      const rest = s.slice(5);
+      const sep = rest.indexOf("|");
+      if (sep > 0) {
+        const area = rest.slice(0, sep).trim();
+        const city = rest.slice(sep + 1).trim();
+        if (area && city) {
+          out.push({ type: "area", city, area, displayName: `${area}, ${city}` });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function encodeLocations(locations: LocationSelection[]): string[] | undefined {
+  if (locations.length === 0) return undefined;
+  return locations.map((l) =>
+    l.type === "area" && l.area ? `area:${l.area}|${l.city}` : `city:${l.city}`,
+  );
+}
 
 const FEE_PRESETS = [
   { label: "Any fee", min: undefined, max: undefined },
@@ -35,29 +72,47 @@ type FilterSection = "category" | "mode" | "fee" | "demo" | "sort" | null;
 
 export default function Search() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ skill?: string; city?: string; area?: string; locationType?: string; category?: string }>();
+  const params = useLocalSearchParams<{
+    skill?: string;
+    loc?: string | string[];
+    // Legacy (still supported): single city/area/locationType
+    city?: string;
+    area?: string;
+    locationType?: string;
+    category?: string;
+  }>();
 
   const [categories, setCategories] = useState<Category[]>(CATEGORIES as Category[]);
   const [skill, setSkill] = useState(params.skill ?? "");
 
-  // Build a proper LocationSelection from URL params.
-  // Supports both the new format (city+area+locationType) and
-  // the legacy format where area was a plain string.
-  function buildInitialLocation(): LocationSelection | null {
+  /**
+   * Build the initial selections from URL params. Supports:
+   *  - The new shape: ?loc=city:Ahmedabad&loc=area:Bopal|Ahmedabad
+   *  - The legacy single-location shape: ?city=…&area=…&locationType=…
+   */
+  function buildInitialLocations(): LocationSelection[] {
+    const fromLoc = parseLocParams(params.loc);
+    if (fromLoc.length > 0) return fromLoc;
     if (params.city) {
       if (params.locationType === "area" && params.area) {
-        return { type: "area", city: params.city, area: params.area, displayName: `${params.area}, ${params.city}` };
+        return [
+          {
+            type: "area",
+            city: params.city,
+            area: params.area,
+            displayName: `${params.area}, ${params.city}`,
+          },
+        ];
       }
-      return { type: "city", city: params.city, displayName: params.city };
+      return [{ type: "city", city: params.city, displayName: params.city }];
     }
-    // Legacy: area-only string from old home page format
     if (params.area) {
-      return { type: "city", city: params.area, displayName: params.area };
+      return [{ type: "city", city: params.area, displayName: params.area }];
     }
-    return null;
+    return [];
   }
 
-  const [location, setLocation] = useState<LocationSelection | null>(buildInitialLocation);
+  const [locations, setLocations] = useState<LocationSelection[]>(buildInitialLocations);
   const [category, setCategory] = useState<string | undefined>(params.category ?? undefined);
   const [teachingMode, setTeachingMode] = useState<string>("all");
   const [feeIdx, setFeeIdx] = useState(0);
@@ -82,9 +137,7 @@ export default function Search() {
       const fee = FEE_PRESETS[feeIdx];
       return {
         skill: skill || undefined,
-        city: location?.city || undefined,
-        area: location?.type === "area" ? (location.area || undefined) : undefined,
-        locationType: location?.type || undefined,
+        locations: locations.length > 0 ? locations : undefined,
         category,
         teachingMode: teachingMode === "all" ? undefined : teachingMode,
         minFee: fee.min,
@@ -95,7 +148,7 @@ export default function Search() {
         pageSize: PAGE_SIZE,
       };
     },
-    [skill, location, category, teachingMode, feeIdx, demoOnly, sort]
+    [skill, locations, category, teachingMode, feeIdx, demoOnly, sort],
   );
 
   const load = useCallback(
@@ -140,12 +193,27 @@ export default function Search() {
   const toggleSection = (s: FilterSection) =>
     setOpenSection((prev) => (prev === s ? null : s));
 
-  // Human-readable location label for the results header
-  const locationLabel = location
-    ? location.type === "area"
-      ? location.displayName
-      : location.city
-    : "All India";
+  // Human-readable label for the results header
+  const locationLabel =
+    locations.length === 0
+      ? "All India"
+      : locations.length === 1
+      ? locations[0].displayName
+      : `${locations.length} locations`;
+
+  // Sync URL so back/forward and bookmarks work for multi-location searches.
+  useEffect(() => {
+    const encoded = encodeLocations(locations);
+    router.setParams({
+      skill: skill || undefined,
+      loc: encoded as unknown as string,
+      city: undefined,
+      area: undefined,
+      locationType: undefined,
+      category: category || undefined,
+    } as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locations, skill, category]);
 
   return (
     <ScrollView className="flex-1 bg-cream">
@@ -153,12 +221,11 @@ export default function Search() {
       <View className="border-b border-brand-border bg-cream px-3 py-3">
         <View className="mx-auto w-full max-w-6xl">
           <SearchBar
-            key={location?.displayName ?? "none"}
             initialSkill={skill}
-            initialLocation={location}
-            onSearch={(sk, loc) => {
+            initialLocations={locations}
+            onSearch={(sk, locs) => {
               setSkill(sk);
-              setLocation(loc);
+              setLocations(locs);
             }}
           />
         </View>
@@ -291,22 +358,37 @@ export default function Search() {
 
         {/* ── Results ── */}
         <View className="flex-1">
-          {/* Result count + location context */}
+          {/* Result count + location chips */}
           <View className="mb-3 flex-row flex-wrap items-center gap-2">
             <Text className="font-body text-sm text-text-muted">
               {loading && coaches.length === 0
                 ? "Searching…"
                 : `${total} coach${total === 1 ? "" : "es"} found`}
+              {locations.length > 0 ? ` in ${locationLabel}` : ""}
             </Text>
-            {location && (
-              <View className="flex-row items-center gap-1 rounded-full bg-purple/10 px-3 py-1">
+            {locations.map((l, i) => (
+              <View
+                key={`${l.displayName}-${i}`}
+                className="flex-row items-center gap-1 rounded-full bg-purple/10 px-3 py-1"
+              >
                 <Text className="text-xs font-semibold text-purple">
-                  {location.type === "city" ? "🏙️" : "📍"} {locationLabel}
+                  {l.type === "city" ? "🏙️" : "📍"} {l.displayName}
                 </Text>
-                <Pressable onPress={() => setLocation(null)}>
+                <Pressable
+                  hitSlop={6}
+                  onPress={() => setLocations((prev) => prev.filter((_, idx) => idx !== i))}
+                >
                   <Text className="ml-1 text-xs text-purple/60">✕</Text>
                 </Pressable>
               </View>
+            ))}
+            {locations.length > 1 && (
+              <Pressable
+                onPress={() => setLocations([])}
+                className="rounded-full border border-purple/30 px-3 py-1"
+              >
+                <Text className="text-xs text-purple">Clear all</Text>
+              </Pressable>
             )}
           </View>
 
@@ -322,24 +404,30 @@ export default function Search() {
             <View className="items-center rounded-2xl border border-brand-border bg-white p-8">
               <Text className="text-4xl">🔍</Text>
               <Text className="mt-3 text-center font-heading text-lg font-bold text-purple">
-                {location
+                {locations.length > 0
                   ? `No coaches found in ${locationLabel}`
                   : "No coaches found"}
               </Text>
               <Text className="mt-1 text-center font-body text-sm text-text-muted">
-                {location?.type === "area"
-                  ? `Try searching for all of ${location.city} instead`
-                  : "Try a different skill or location"}
+                {locations.length === 1 && locations[0].type === "area"
+                  ? `Try searching for all of ${locations[0].city} instead`
+                  : "Try a different skill, broaden your areas, or change cities"}
               </Text>
-              {location?.type === "area" && (
+              {locations.length === 1 && locations[0].type === "area" && (
                 <Pressable
                   onPress={() =>
-                    setLocation({ type: "city", city: location.city, displayName: location.city })
+                    setLocations([
+                      {
+                        type: "city",
+                        city: locations[0].city,
+                        displayName: locations[0].city,
+                      },
+                    ])
                   }
                   className="mt-3 rounded-full border border-purple px-5 py-2"
                 >
                   <Text className="font-heading text-sm font-semibold text-purple">
-                    Search all of {location.city}
+                    Search all of {locations[0].city}
                   </Text>
                 </Pressable>
               )}

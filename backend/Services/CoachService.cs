@@ -233,6 +233,21 @@ public class CoachService
 
     private static void AppendCommonFilters(List<string> filters, CoachQuery q)
     {
+        // ---- Multi-location filter (preferred path) -------------------------
+        if (q.Locations is { Length: > 0 })
+        {
+            var clauses = BuildLocationOrClauses(q.Locations);
+            if (clauses.Count > 0)
+            {
+                // PostgREST: or=(and(city.ilike.X),and(city.ilike.Y,area.ilike.%Z%))
+                filters.Add($"or=({string.Join(",", clauses)})");
+            }
+            // Skip the single-location logic when multi was provided
+            AppendNonLocationFilters(filters, q);
+            return;
+        }
+
+        // ---- Legacy single-location filter ---------------------------------
         var cityTrim = q.City?.Trim();
         var areaTrim = q.Area?.Trim();
         var locType  = q.LocationType?.Trim().ToLowerInvariant();
@@ -262,6 +277,15 @@ public class CoachService
             filters.Add($"city=ilike.{Uri.EscapeDataString(cityTrim)}");
         }
 
+        AppendNonLocationFilters(filters, q);
+    }
+
+    /// <summary>
+    /// Shared "everything that isn't location" — category, fee, mode, demo, skill, etc.
+    /// Extracted so both the single-location and multi-location paths apply them.
+    /// </summary>
+    private static void AppendNonLocationFilters(List<string> filters, CoachQuery q)
+    {
         if (!string.IsNullOrWhiteSpace(q.CategoryId))
             filters.Add($"category_id=eq.{Uri.EscapeDataString(q.CategoryId)}");
         if (q.MinFee.HasValue)
@@ -282,6 +306,46 @@ public class CoachService
         }
     }
 
+    /// <summary>
+    /// Parse each "city:Name" / "area:AreaName|CityName" string into a PostgREST
+    /// AND-clause that matches a coach for that one location. The caller wraps
+    /// the list in or=(...) to OR-match across all of them.
+    /// </summary>
+    private static List<string> BuildLocationOrClauses(string[] locations)
+    {
+        var clauses = new List<string>();
+        foreach (var raw in locations)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            var s = raw.Trim();
+
+            // city:Ahmedabad → and(city.ilike.Ahmedabad)
+            if (s.StartsWith("city:", StringComparison.OrdinalIgnoreCase))
+            {
+                var city = s.Substring(5).Trim();
+                if (string.IsNullOrEmpty(city)) continue;
+                clauses.Add($"and(city.ilike.{Uri.EscapeDataString(city)})");
+                continue;
+            }
+
+            // area:Bopal|Ahmedabad → and(city.ilike.Ahmedabad,area.ilike.%Bopal%)
+            if (s.StartsWith("area:", StringComparison.OrdinalIgnoreCase))
+            {
+                var rest = s.Substring(5);
+                var sep = rest.IndexOf('|');
+                if (sep <= 0 || sep >= rest.Length - 1) continue;
+                var area = rest.Substring(0, sep).Trim();
+                var city = rest.Substring(sep + 1).Trim();
+                if (string.IsNullOrEmpty(area) || string.IsNullOrEmpty(city)) continue;
+                var areaPattern = Uri.EscapeDataString(
+                    "%" + area.Replace("%", "\\%").Replace("_", "\\_") + "%");
+                clauses.Add(
+                    $"and(city.ilike.{Uri.EscapeDataString(city)},area.ilike.{areaPattern})");
+            }
+        }
+        return clauses;
+    }
+
     private static string Esc(string value) => Uri.EscapeDataString(value);
 }
 
@@ -292,6 +356,13 @@ public class CoachQuery
     public string? Area { get; set; }
     public string? City { get; set; }          // null = no city filter
     public string? LocationType { get; set; }  // "city" | "area" | null
+
+    /// <summary>
+    /// Multi-location filter — each entry is "city:Name" or "area:AreaName|CityName".
+    /// When non-empty, this REPLACES the single-location (City/Area/LocationType)
+    /// logic and OR-matches coaches across all of the listed locations.
+    /// </summary>
+    public string[]? Locations { get; set; }
     public string? CategoryId { get; set; }
     public int? MinFee { get; set; }
     public int? MaxFee { get; set; }

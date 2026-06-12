@@ -9,6 +9,7 @@ import Footer from "../../components/Footer";
 import { CategoryApi, CoachApi, buildWhatsAppLink } from "../../lib/api";
 import { CATEGORIES } from "../../constants/categories";
 import { useCity } from "../../lib/city";
+import type { LocationSelection } from "../../lib/location";
 import type { Category, Coach } from "../../lib/types";
 
 export default function Home() {
@@ -19,21 +20,27 @@ export default function Home() {
 
   useEffect(() => {
     CategoryApi.list().then(setCategories).catch(() => {});
-    CoachApi.list({ featured: true, city, pageSize: 8 })
+    CoachApi.list({
+      featured: true,
+      locations: city ? [{ type: "city", city, displayName: city }] : undefined,
+      pageSize: 8,
+    })
       .then((r) => setFeatured(r.items))
       .catch(() => {});
   }, [city]);
 
-  const goSearch = (skill: string, location: import("../../components/LocationAutocomplete").LocationSelection | null) =>
+  const goSearch = (skill: string, locations: LocationSelection[]) => {
+    const loc = locations.map((l) =>
+      l.type === "area" && l.area ? `area:${l.area}|${l.city}` : `city:${l.city}`,
+    );
     router.push({
       pathname: "/search",
       params: {
         skill: skill || undefined,
-        city: location?.city || undefined,
-        area: location?.area || undefined,
-        locationType: location?.type || undefined,
+        loc: loc.length > 0 ? (loc as any) : undefined,
       },
     });
+  };
 
   const onWhatsApp = async (coach: Coach) => {
     const skill = coach.sub_skills?.[0] ?? coach.categories?.name ?? "skill";
