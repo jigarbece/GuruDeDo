@@ -73,10 +73,9 @@ export default function Search() {
       const fee = FEE_PRESETS[feeIdx];
       return {
         skill: skill || undefined,
-        // Location: split into city, area, locationType for the backend.
         city: location?.city || undefined,
-        area: location?.type === "area" ? location.area : undefined,
-        locationType: location?.type,
+        area: location?.type === "area" ? (location.area || undefined) : undefined,
+        locationType: location?.type || undefined,
         category,
         teachingMode: teachingMode === "all" ? undefined : teachingMode,
         minFee: fee.min,
