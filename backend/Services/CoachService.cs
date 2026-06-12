@@ -39,7 +39,16 @@ public class CoachService
         };
 
         var query = $"select={Embed}&{countFilter}&order={order}&offset={offset}&limit={pageSize}";
-        var items = await _db.SelectAsync<Coach>("coaches", query);
+        List<Coach> items;
+        try
+        {
+            items = await _db.SelectAsync<Coach>("coaches", query);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Re-throw with the full query for easier debugging
+            throw new HttpRequestException($"Coach query failed. Query: {query} | Error: {ex.Message}", ex);
+        }
 
         return new PagedResult<Coach>
         {
@@ -189,161 +198,106 @@ public class CoachService
         if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 1)
             return new List<string>();
 
-        var term = "%" + q.Trim().Replace("%", "\\%").Replace("_", "\\_") + "%";
+        var term    = "%" + q.Trim().Replace("%", "\\%").Replace("_", "\\_") + "%";
         var termEnc = Uri.EscapeDataString(term);
 
-        // 1. Category names that match.
+        // select= must come first in PostgREST query strings
         var cats = await _db.SelectAsync<Category>(
-            "categories", $"name.ilike.{termEnc}&is_active=eq.true&select=name&limit=5");
+            "categories",
+            $"select=name&is_active=eq.true&name=ilike.{termEnc}&limit=5");
         var catNames = cats.Select(c => c.Name).Where(n => !string.IsNullOrEmpty(n)).ToList();
 
-        // 2. Collect sub_skills from coaches that contain the term in their skills text.
-        //    We pull a batch and flatten client-side — avoids needing a DB function.
+        // sub_skills::text — keep :: unencoded; it is part of the column expression
         var coaches = await _db.SelectAsync<Coach>(
             "coaches",
-            $"select=sub_skills&status=eq.approved&sub_skills::text.ilike.{termEnc}&limit=50");
+            $"select=sub_skills&status=eq.approved&sub_skills=ilike.{termEnc}&limit=50");
 
-        var qLower = q.Trim().ToLowerInvariant();
         var skillSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         foreach (var coach in coaches)
         {
             if (coach.SubSkills == null) continue;
             foreach (var skill in coach.SubSkills)
-            {
                 if (!string.IsNullOrWhiteSpace(skill) &&
                     skill.Contains(q.Trim(), StringComparison.OrdinalIgnoreCase))
-                {
                     skillSet.Add(skill.Trim());
-                }
-            }
         }
 
-        // Merge: category names first, then individual sub-skills, deduplicated.
-        var results = catNames
+        return catNames
             .Concat(skillSet.OrderBy(s => s))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(limit)
             .ToList();
-
-        return results;
     }
 
     // ---- Helpers --------------------------------------------------------------
 
     private static void AppendCommonFilters(List<string> filters, CoachQuery q)
     {
-        // ---- Multi-location filter (preferred path) -------------------------
-        if (q.Locations is { Length: > 0 })
-        {
-            var clauses = BuildLocationOrClauses(q.Locations);
-            if (clauses.Count > 0)
-            {
-                // PostgREST: or=(and(city.ilike.X),and(city.ilike.Y,area.ilike.%Z%))
-                filters.Add($"or=({string.Join(",", clauses)})");
-            }
-            // Skip the single-location logic when multi was provided
-            AppendNonLocationFilters(filters, q);
-            return;
-        }
-
-        // ---- Legacy single-location filter ---------------------------------
         var cityTrim = q.City?.Trim();
         var areaTrim = q.Area?.Trim();
         var locType  = q.LocationType?.Trim().ToLowerInvariant();
 
+        // ── Location ─────────────────────────────────────────────────────────
         if (!string.IsNullOrEmpty(cityTrim) && !string.IsNullOrEmpty(areaTrim) && locType == "area")
         {
-            // User picked a specific area suggestion — filter city + area
-            filters.Add($"city=ilike.{Uri.EscapeDataString(cityTrim)}");
-            filters.Add($"area=ilike.{Uri.EscapeDataString("%" + areaTrim.Replace("%","\\%").Replace("_","\\_") + "%")}");
-        }
-        else if (!string.IsNullOrEmpty(cityTrim) && locType != "area")
-        {
-            // City-level — return all coaches in that city regardless of area
-            filters.Add($"city=ilike.{Uri.EscapeDataString(cityTrim)}");
-        }
-        else if (!string.IsNullOrEmpty(areaTrim) && string.IsNullOrEmpty(cityTrim))
-        {
-            // Free-text with no city: search both city and area columns so
-            // typing "Bopal" matches area=Bopal coaches AND typing "Ahmedabad"
-            // matches city=Ahmedabad coaches even if city was sent as area.
-            var areaPattern = Uri.EscapeDataString("%" + areaTrim.Replace("%","\\%").Replace("_","\\_") + "%");
-            filters.Add($"or=(area.ilike.{areaPattern},city.ilike.{areaPattern})");
+            // Specific area within a city
+            filters.Add($"city=ilike.{Esc(cityTrim)}");
+            filters.Add($"area=ilike.{Esc("%" + areaTrim + "%")}");
         }
         else if (!string.IsNullOrEmpty(cityTrim))
         {
-            // City with no locationType — treat as city search
-            filters.Add($"city=ilike.{Uri.EscapeDataString(cityTrim)}");
+            // City-level — all areas in that city
+            filters.Add($"city=ilike.{Esc(cityTrim)}");
+        }
+        else if (!string.IsNullOrEmpty(areaTrim))
+        {
+            // Raw free-text — check both city and area columns.
+            // IMPORTANT: only one or=() is allowed per PostgREST query.
+            // We'll combine this with the skill or() below if needed.
+            // Store separately so we can merge.
         }
 
-        AppendNonLocationFilters(filters, q);
-    }
-
-    /// <summary>
-    /// Shared "everything that isn't location" — category, fee, mode, demo, skill, etc.
-    /// Extracted so both the single-location and multi-location paths apply them.
-    /// </summary>
-    private static void AppendNonLocationFilters(List<string> filters, CoachQuery q)
-    {
+        // ── Category / Fee / Mode / Demo / Featured ───────────────────────────
         if (!string.IsNullOrWhiteSpace(q.CategoryId))
-            filters.Add($"category_id=eq.{Uri.EscapeDataString(q.CategoryId)}");
+            filters.Add($"category_id=eq.{Esc(q.CategoryId)}");
         if (q.MinFee.HasValue)
             filters.Add($"fee_min=gte.{q.MinFee.Value}");
         if (q.MaxFee.HasValue)
             filters.Add($"fee_max=lte.{q.MaxFee.Value}");
         if (!string.IsNullOrWhiteSpace(q.TeachingMode) && q.TeachingMode != "all")
-            filters.Add($"teaching_mode=in.({Uri.EscapeDataString(q.TeachingMode)},all)");
+            filters.Add($"teaching_mode=in.({Esc(q.TeachingMode)},all)");
         if (q.DemoAvailable == true)
             filters.Add("demo_available=eq.true");
         if (q.Featured == true)
             filters.Add("featured=eq.true");
+
+        // ── Skill + optional free-text location (combined into one or=()) ────
+        // PostgREST allows only ONE or= parameter per request.
+        // Build all OR clauses together and emit a single or=(...).
+        var orClauses = new List<string>();
+
+        // Free-text location (no resolved city) — search both columns
+        if (string.IsNullOrEmpty(cityTrim) && !string.IsNullOrEmpty(areaTrim))
+        {
+            var ap = Esc("%" + areaTrim + "%");
+            orClauses.Add($"area.ilike.{ap}");
+            orClauses.Add($"city.ilike.{ap}");
+        }
+
+        // Skill — search bio and full_name (text columns support ilike)
         if (!string.IsNullOrWhiteSpace(q.Skill))
         {
-            var term    = "%" + q.Skill.Trim().Replace("%","\\%").Replace("_","\\_") + "%";
-            var termEnc = Uri.EscapeDataString(term);
-            filters.Add($"or=(sub_skills::text.ilike.{termEnc},bio.ilike.{termEnc},full_name.ilike.{termEnc})");
+            var tp = Esc("%" + q.Skill.Trim() + "%");
+            orClauses.Add($"bio.ilike.{tp}");
+            orClauses.Add($"full_name.ilike.{tp}");
+            // sub_skills: use cs (array contains) for exact match as well
+            // cs is case-sensitive but at least finds exact matches
+            var csVal = Esc("{" + q.Skill.Trim() + "}");
+            orClauses.Add($"sub_skills.cs.{csVal}");
         }
-    }
 
-    /// <summary>
-    /// Parse each "city:Name" / "area:AreaName|CityName" string into a PostgREST
-    /// AND-clause that matches a coach for that one location. The caller wraps
-    /// the list in or=(...) to OR-match across all of them.
-    /// </summary>
-    private static List<string> BuildLocationOrClauses(string[] locations)
-    {
-        var clauses = new List<string>();
-        foreach (var raw in locations)
-        {
-            if (string.IsNullOrWhiteSpace(raw)) continue;
-            var s = raw.Trim();
-
-            // city:Ahmedabad → and(city.ilike.Ahmedabad)
-            if (s.StartsWith("city:", StringComparison.OrdinalIgnoreCase))
-            {
-                var city = s.Substring(5).Trim();
-                if (string.IsNullOrEmpty(city)) continue;
-                clauses.Add($"and(city.ilike.{Uri.EscapeDataString(city)})");
-                continue;
-            }
-
-            // area:Bopal|Ahmedabad → and(city.ilike.Ahmedabad,area.ilike.%Bopal%)
-            if (s.StartsWith("area:", StringComparison.OrdinalIgnoreCase))
-            {
-                var rest = s.Substring(5);
-                var sep = rest.IndexOf('|');
-                if (sep <= 0 || sep >= rest.Length - 1) continue;
-                var area = rest.Substring(0, sep).Trim();
-                var city = rest.Substring(sep + 1).Trim();
-                if (string.IsNullOrEmpty(area) || string.IsNullOrEmpty(city)) continue;
-                var areaPattern = Uri.EscapeDataString(
-                    "%" + area.Replace("%", "\\%").Replace("_", "\\_") + "%");
-                clauses.Add(
-                    $"and(city.ilike.{Uri.EscapeDataString(city)},area.ilike.{areaPattern})");
-            }
-        }
-        return clauses;
+        if (orClauses.Count > 0)
+            filters.Add($"or=({string.Join(",", orClauses)})");
     }
 
     private static string Esc(string value) => Uri.EscapeDataString(value);
@@ -354,15 +308,8 @@ public class CoachQuery
 {
     public string? Skill { get; set; }
     public string? Area { get; set; }
-    public string? City { get; set; }          // null = no city filter
-    public string? LocationType { get; set; }  // "city" | "area" | null
-
-    /// <summary>
-    /// Multi-location filter — each entry is "city:Name" or "area:AreaName|CityName".
-    /// When non-empty, this REPLACES the single-location (City/Area/LocationType)
-    /// logic and OR-matches coaches across all of the listed locations.
-    /// </summary>
-    public string[]? Locations { get; set; }
+    public string? City { get; set; }
+    public string? LocationType { get; set; }
     public string? CategoryId { get; set; }
     public int? MinFee { get; set; }
     public int? MaxFee { get; set; }

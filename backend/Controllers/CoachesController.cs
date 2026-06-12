@@ -24,7 +24,6 @@ public class CoachesController : ControllerBase
         [FromQuery] string? area,
         [FromQuery] string? city,
         [FromQuery] string? locationType,
-        [FromQuery(Name = "loc")] string[]? loc = null,
         [FromQuery] int? minFee = null,
         [FromQuery] int? maxFee = null,
         [FromQuery] string? teachingMode = null,
@@ -34,7 +33,7 @@ public class CoachesController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 12)
     {
-        var query = await BuildQueryAsync(null, category, area, city, locationType, loc,
+        var query = await BuildQueryAsync(null, category, area, city, locationType,
             minFee, maxFee, teachingMode, demoAvailable, featured, sort, page, pageSize);
         var result = await _coaches.ListAsync(query);
         return Ok(result);
@@ -49,7 +48,7 @@ public class CoachesController : ControllerBase
         return Ok(suggestions);
     }
 
-    /// <summary>GET /api/coaches/search — search by skill + multi-location + filters.</summary>
+    /// <summary>GET /api/coaches/search — search by skill + area + category.</summary>
     [HttpGet("search")]
     public async Task<IActionResult> Search(
         [FromQuery] string? skill,
@@ -57,7 +56,6 @@ public class CoachesController : ControllerBase
         [FromQuery] string? category,
         [FromQuery] string? city,
         [FromQuery] string? locationType,
-        [FromQuery(Name = "loc")] string[]? loc = null,
         [FromQuery] int? minFee = null,
         [FromQuery] int? maxFee = null,
         [FromQuery] string? teachingMode = null,
@@ -66,7 +64,7 @@ public class CoachesController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 12)
     {
-        var query = await BuildQueryAsync(skill, category, area, city, locationType, loc,
+        var query = await BuildQueryAsync(skill, category, area, city, locationType,
             minFee, maxFee, teachingMode, demoAvailable, null, sort, page, pageSize);
         var result = await _coaches.SearchAsync(query);
         return Ok(result);
@@ -109,7 +107,6 @@ public class CoachesController : ControllerBase
 
     private async Task<CoachQuery> BuildQueryAsync(
         string? skill, string? categorySlug, string? area, string? city, string? locationType,
-        string[]? locations,
         int? minFee, int? maxFee, string? teachingMode, bool? demoAvailable,
         bool? featured, string? sort, int page, int pageSize)
     {
@@ -121,9 +118,8 @@ public class CoachesController : ControllerBase
         {
             Skill = skill,
             Area = area,
-            City = city,                  // null = no city filter (all cities)
-            LocationType = locationType,  // "city" | "area" | null
-            Locations = locations,        // multi-location filter (preferred path)
+            City = city,
+            LocationType = locationType,
             CategoryId = categoryId,
             MinFee = minFee,
             MaxFee = maxFee,
