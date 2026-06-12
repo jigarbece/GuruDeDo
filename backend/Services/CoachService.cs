@@ -250,10 +250,11 @@ public class CoachService
         }
         else if (!string.IsNullOrEmpty(areaTrim) && string.IsNullOrEmpty(cityTrim))
         {
-            // Area given with no city (raw free text fallback) — search both columns with OR
-            // so "Bopal" matches coaches whose area is Bopal OR city is Bopal
+            // Free-text with no city: search both city and area columns so
+            // typing "Bopal" matches area=Bopal coaches AND typing "Ahmedabad"
+            // matches city=Ahmedabad coaches even if city was sent as area.
             var areaPattern = Uri.EscapeDataString("%" + areaTrim.Replace("%","\\%").Replace("_","\\_") + "%");
-            filters.Add($"or=(area=ilike.{areaPattern},city=ilike.{areaPattern})");
+            filters.Add($"or=(area.ilike.{areaPattern},city.ilike.{areaPattern})");
         }
         else if (!string.IsNullOrEmpty(cityTrim))
         {

@@ -35,21 +35,30 @@ type FilterSection = "category" | "mode" | "fee" | "demo" | "sort" | null;
 
 export default function Search() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ skill?: string; city?: string; area?: string; locationType?: string }>();
+  const params = useLocalSearchParams<{ skill?: string; city?: string; area?: string; locationType?: string; category?: string }>();
 
   const [categories, setCategories] = useState<Category[]>(CATEGORIES as Category[]);
   const [skill, setSkill] = useState(params.skill ?? "");
 
-  // Reconstruct a LocationSelection from URL params if present.
-  const initialLocation: LocationSelection | null = params.city
-    ? params.locationType === "area" && params.area
-      ? { type: "area", city: params.city, area: params.area, displayName: `${params.area}, ${params.city}` }
-      : { type: "city", city: params.city, displayName: params.city }
-    : null;
+  // Build a proper LocationSelection from URL params.
+  // Supports both the new format (city+area+locationType) and
+  // the legacy format where area was a plain string.
+  function buildInitialLocation(): LocationSelection | null {
+    if (params.city) {
+      if (params.locationType === "area" && params.area) {
+        return { type: "area", city: params.city, area: params.area, displayName: `${params.area}, ${params.city}` };
+      }
+      return { type: "city", city: params.city, displayName: params.city };
+    }
+    // Legacy: area-only string from old home page format
+    if (params.area) {
+      return { type: "city", city: params.area, displayName: params.area };
+    }
+    return null;
+  }
 
-  const [location, setLocation] = useState<LocationSelection | null>(initialLocation);
-
-  const [category, setCategory] = useState<string | undefined>(undefined);
+  const [location, setLocation] = useState<LocationSelection | null>(buildInitialLocation);
+  const [category, setCategory] = useState<string | undefined>(params.category ?? undefined);
   const [teachingMode, setTeachingMode] = useState<string>("all");
   const [feeIdx, setFeeIdx] = useState(0);
   const [demoOnly, setDemoOnly] = useState(false);
@@ -144,6 +153,7 @@ export default function Search() {
       <View className="border-b border-brand-border bg-cream px-3 py-3">
         <View className="mx-auto w-full max-w-6xl">
           <SearchBar
+            key={location?.displayName ?? "none"}
             initialSkill={skill}
             initialLocation={location}
             onSearch={(sk, loc) => {

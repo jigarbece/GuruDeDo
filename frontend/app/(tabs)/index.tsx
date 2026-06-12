@@ -24,8 +24,16 @@ export default function Home() {
       .catch(() => {});
   }, [city]);
 
-  const goSearch = (skill: string, area: string) =>
-    router.push({ pathname: "/search", params: { skill, area } });
+  const goSearch = (skill: string, location: import("../../components/LocationAutocomplete").LocationSelection | null) =>
+    router.push({
+      pathname: "/search",
+      params: {
+        skill: skill || undefined,
+        city: location?.city || undefined,
+        area: location?.area || undefined,
+        locationType: location?.type || undefined,
+      },
+    });
 
   const onWhatsApp = async (coach: Coach) => {
     const skill = coach.sub_skills?.[0] ?? coach.categories?.name ?? "skill";

@@ -24,8 +24,9 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
     const el = useRef<HTMLDivElement | null>(null);
     if (!el.current) {
       el.current = document.createElement("div");
+      // Zero-size fixed container — pointer-events on children handled individually
       el.current.style.cssText =
-        "position:fixed;top:0;left:0;width:0;height:0;z-index:99999;pointer-events:none;";
+        "position:fixed;top:0;left:0;width:0;height:0;z-index:99999;";
       document.body.appendChild(el.current);
     }
     useEffect(
@@ -80,7 +81,6 @@ function portalStyle(pos: { top: number; left: number; width: number }) {
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     overflow: "hidden" as const,
-    pointerEvents: "auto" as const,
   };
 }
 
