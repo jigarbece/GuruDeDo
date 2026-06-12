@@ -3,8 +3,8 @@ import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from "r
 import { searchPlaces, type PlaceSuggestion } from "../lib/places";
 import type { Coords } from "../lib/city";
 
-// Web-only portal: renders the dropdown directly on document.body so it
-// can never be clipped or buried by any parent stacking context.
+// Web-only portal: renders the dropdown directly on document.body so no
+// parent overflow/stacking context can ever clip or bury it.
 let DropdownPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => <>{children}</>;
 if (Platform.OS === "web" && typeof document !== "undefined") {
   const ReactDOM = require("react-dom");
@@ -12,7 +12,8 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
     const el = useRef<HTMLDivElement | null>(null);
     if (!el.current) {
       el.current = document.createElement("div");
-      el.current.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;z-index:99999;";
+      el.current.style.cssText =
+        "position:fixed;top:0;left:0;width:0;height:0;z-index:99999;";
       document.body.appendChild(el.current);
     }
     useEffect(() => {
@@ -30,28 +31,12 @@ interface Props {
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
-  /** When set, suggestions in this city are surfaced first. */
   cityBias?: string;
-  /**
-   * Lat/lon used to bias Photon results by proximity. When provided, results
-   * near these coords win — this is what makes suggestions feel "nearby" even
-   * when the city label is a suburb the metro-centroid map doesn't know.
-   */
   coordBias?: Coords | null;
   onSubmitEditing?: () => void;
-  /** Extra Tailwind classes for the wrapper (e.g. flex sizing). */
   wrapperClassName?: string;
 }
 
-/**
- * Google-Maps-style area autocomplete.
- *
- * - Debounces input by 300ms so we don't hammer Photon while the user types.
- * - Aborts in-flight requests when the query changes.
- * - On web the dropdown is rendered into a document.body portal so it is
- *   never clipped by any parent overflow/stacking context.
- * - On native the dropdown is absolutely positioned below the input as before.
- */
 export default function AreaAutocomplete({
   value,
   onChangeText,
@@ -64,10 +49,11 @@ export default function AreaAutocomplete({
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [justPicked, setJustPicked] = useState(false);
 
-  // Tracks the pixel position of the input so the portal dropdown can be
-  // placed directly below it regardless of scroll or parent transforms.
+  // Use a ref (not state) for the "just picked" flag so it never triggers a
+  // re-render and cannot be overwritten by an async state flush mid-effect.
+  const justPickedRef = useRef(false);
+
   const [dropdownPos, setDropdownPos] = useState<{
     top: number;
     left: number;
@@ -78,45 +64,37 @@ export default function AreaAutocomplete({
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Measure the input's viewport position so the portal dropdown
-  // can be placed directly below it. Works with any scroll depth.
   const measureInput = () => {
     if (Platform.OS !== "web") return;
-    // react-native-web exposes the DOM node directly on the ref object.
     const domNode = (inputRef.current as any) as HTMLElement | null;
     if (!domNode || typeof domNode.getBoundingClientRect !== "function") return;
     const rect = domNode.getBoundingClientRect();
-    setDropdownPos({
-      // Use fixed positioning (viewport-relative) so scroll doesn't misalign it.
-      top: rect.bottom,
-      left: rect.left,
-      width: rect.width,
-    });
+    setDropdownPos({ top: rect.bottom, left: rect.left, width: rect.width });
   };
 
   useEffect(() => {
-    if (justPicked) {
-      setJustPicked(false);
+    // If a suggestion was just picked, skip this run and clear the flag.
+    if (justPickedRef.current) {
+      justPickedRef.current = false;
       return;
     }
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
+
     if (value.trim().length < 2) {
       setSuggestions([]);
       setOpen(false);
       setLoading(false);
       return;
     }
+
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       try {
-        const list = await searchPlaces(
-          value,
-          { cityBias, coordBias },
-          controller.signal,
-        );
+        const list = await searchPlaces(value, { cityBias, coordBias }, controller.signal);
         if (!controller.signal.aborted) {
           setSuggestions(list);
           if (list.length > 0) {
@@ -127,11 +105,12 @@ export default function AreaAutocomplete({
           }
         }
       } catch {
-        /* aborted or network — silently fall back to free typing */
+        /* aborted or network error — allow free typing */
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
     }, 300);
+
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -139,10 +118,12 @@ export default function AreaAutocomplete({
   }, [value, cityBias, coordBias?.lat, coordBias?.lon]);
 
   const pick = (s: PlaceSuggestion) => {
-    setJustPicked(true);
-    onChangeText(s.name);
+    // Set the ref BEFORE calling onChangeText so the value-change effect
+    // sees it immediately and skips the re-query.
+    justPickedRef.current = true;
     setSuggestions([]);
     setOpen(false);
+    onChangeText(s.name);
   };
 
   const dropdownContent =
@@ -199,9 +180,7 @@ export default function AreaAutocomplete({
               📍 {s.name}
             </Text>
             {s.fullLabel ? (
-              <Text className="mt-0.5 font-body text-xs text-text-muted">
-                {s.fullLabel}
-              </Text>
+              <Text className="mt-0.5 font-body text-xs text-text-muted">{s.fullLabel}</Text>
             ) : null}
           </Pressable>
         ))}
@@ -225,24 +204,17 @@ export default function AreaAutocomplete({
             setOpen(true);
           }
         }}
-        // Delay blur slightly so taps on suggestions register before close.
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onSubmitEditing={onSubmitEditing}
         className="rounded-xl border border-brand-border px-4 py-3 font-body text-base text-text-dark"
       />
 
-      {/* Spinner at the right edge of the input during fetch */}
       {loading && (
-        <View
-          pointerEvents="none"
-          style={{ position: "absolute", right: 12, top: 14 }}
-        >
+        <View pointerEvents="none" style={{ position: "absolute", right: 12, top: 14 }}>
           <ActivityIndicator size="small" color="#5B2C8C" />
         </View>
       )}
 
-      {/* On web: portal to body so nothing can clip the dropdown.
-          On native: render inline (absolute within this wrapper). */}
       {Platform.OS === "web" ? (
         <DropdownPortal>{dropdownContent}</DropdownPortal>
       ) : (

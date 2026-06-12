@@ -18,35 +18,36 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
   const submit = () => onSearch(skill.trim(), area.trim());
 
   return (
-    // zIndex on the wrapper creates a stacking context so the autocomplete
-    // dropdown floats above any siblings below the SearchBar (e.g. the
-    // "Showing coaches in…" line, or the filters grid on the search page).
     <View
       style={{ zIndex: 100, position: "relative" }}
-      className="w-full flex-col gap-3 rounded-2xl bg-white p-3 shadow-sm md:flex-row md:items-center">
-      <TextInput
-        value={skill}
-        onChangeText={setSkill}
-        placeholder="Guitar, Yoga, Math..."
-        placeholderTextColor="#9CA3AF"
-        onSubmitEditing={submit}
-        className="flex-1 rounded-xl border border-brand-border px-4 py-3 font-body text-base text-text-dark"
-      />
-      <AreaAutocomplete
-        value={area}
-        onChangeText={setArea}
-        placeholder="Your area or locality"
-        cityBias={city}
-        coordBias={coords}
-        onSubmitEditing={submit}
-        wrapperClassName="flex-1"
-      />
-      <Pressable
-        onPress={submit}
-        className="items-center justify-center rounded-xl bg-red px-8 py-3 active:opacity-80"
-      >
-        <Text className="font-heading text-base font-semibold text-white">Search</Text>
-      </Pressable>
+      className="w-full rounded-2xl bg-white p-2 shadow-sm"
+    >
+      {/* On mobile: stacked. On desktop: single row. */}
+      <View className="flex-col gap-2 md:flex-row md:items-center">
+        <TextInput
+          value={skill}
+          onChangeText={setSkill}
+          placeholder="Guitar, Yoga, Math..."
+          placeholderTextColor="#9CA3AF"
+          onSubmitEditing={submit}
+          className="rounded-xl border border-brand-border bg-white px-4 py-3 font-body text-base text-text-dark md:flex-1"
+        />
+        <AreaAutocomplete
+          value={area}
+          onChangeText={setArea}
+          placeholder="Your area or locality"
+          cityBias={city}
+          coordBias={coords}
+          onSubmitEditing={submit}
+          wrapperClassName="md:flex-1"
+        />
+        <Pressable
+          onPress={submit}
+          className="items-center justify-center rounded-xl bg-red px-6 py-3 active:opacity-80"
+        >
+          <Text className="font-heading text-base font-semibold text-white">Search</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

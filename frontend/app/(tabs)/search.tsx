@@ -1,5 +1,13 @@
-﻿import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from "react-native";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import SearchBar from "../../components/SearchBar";
 import CoachCard from "../../components/CoachCard";
@@ -10,20 +18,23 @@ import { useCity } from "../../lib/city";
 import type { Category, Coach } from "../../lib/types";
 
 const FEE_PRESETS = [
-  { label: "Any", min: undefined, max: undefined },
-  { label: "≤ ₹1,000", min: undefined, max: 1000 },
+  { label: "Any fee", min: undefined, max: undefined },
+  { label: "≤ ₹1k", min: undefined, max: 1000 },
   { label: "₹1k–₹3k", min: 1000, max: 3000 },
   { label: "₹3k–₹6k", min: 3000, max: 6000 },
   { label: "₹6k+", min: 6000, max: undefined },
 ];
 
 const SORTS = [
-  { value: "featured", label: "Featured first" },
+  { value: "featured", label: "Featured" },
   { value: "newest", label: "Newest" },
-  { value: "fee_asc", label: "Fee: Low to High" },
+  { value: "fee_asc", label: "Fee ↑" },
 ];
 
 const PAGE_SIZE = 12;
+
+// ---- Mobile filter sections (for the dropdown accordion) --------------------
+type FilterSection = "category" | "mode" | "fee" | "demo" | "sort" | null;
 
 export default function Search() {
   const router = useRouter();
@@ -43,6 +54,10 @@ export default function Search() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Mobile filter panel open/close
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<FilterSection>(null);
 
   useEffect(() => {
     CategoryApi.list().then(setCategories).catch(() => {});
@@ -85,7 +100,6 @@ export default function Search() {
     [buildFilters]
   );
 
-  // Re-run search when any filter changes.
   useEffect(() => {
     load(1, false);
   }, [load]);
@@ -99,10 +113,21 @@ export default function Search() {
 
   const canLoadMore = coaches.length < total;
 
+  // Count active filters for the badge
+  const activeFilterCount =
+    (category ? 1 : 0) +
+    (teachingMode !== "all" ? 1 : 0) +
+    (feeIdx !== 0 ? 1 : 0) +
+    (demoOnly ? 1 : 0) +
+    (sort !== "featured" ? 1 : 0);
+
+  const toggleSection = (s: FilterSection) =>
+    setOpenSection((prev) => (prev === s ? null : s));
+
   return (
     <ScrollView className="flex-1 bg-cream">
-      {/* Sticky-ish search bar */}
-      <View className="border-b border-brand-border bg-cream px-4 py-4">
+      {/* ── Search bar ── */}
+      <View className="border-b border-brand-border bg-cream px-3 py-3">
         <View className="mx-auto w-full max-w-6xl">
           <SearchBar
             initialSkill={skill}
@@ -115,9 +140,132 @@ export default function Search() {
         </View>
       </View>
 
-      <View className="mx-auto w-full max-w-6xl flex-col gap-6 px-4 py-6 md:flex-row">
-        {/* Filters */}
-        <View className="w-full md:w-64">
+      {/* ── Mobile filter toggle bar ── */}
+      <View className="border-b border-brand-border bg-white px-3 py-2 md:hidden">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, alignItems: "center", paddingVertical: 2 }}
+        >
+          {/* Filter toggle button */}
+          <Pressable
+            onPress={() => setMobileFilterOpen((v) => !v)}
+            className={`flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 ${
+              mobileFilterOpen || activeFilterCount > 0
+                ? "border-red bg-red"
+                : "border-brand-border bg-white"
+            }`}
+          >
+            <Text
+              className={`text-xs font-semibold ${
+                mobileFilterOpen || activeFilterCount > 0 ? "text-white" : "text-purple"
+              }`}
+            >
+              🎚 Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </Text>
+          </Pressable>
+
+          {/* Quick category chips */}
+          <Chip active={!category} onPress={() => setCategory(undefined)} text="All" />
+          {categories.slice(0, 8).map((c) => (
+            <Chip
+              key={c.slug}
+              active={category === c.slug}
+              onPress={() => setCategory(c.slug)}
+              text={`${c.icon} ${c.name}`}
+            />
+          ))}
+
+          {/* Sort quick chips */}
+          {SORTS.map((s) => (
+            <Chip
+              key={s.value}
+              active={sort === s.value}
+              onPress={() => setSort(s.value)}
+              text={s.label}
+            />
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* ── Mobile expandable full filter panel ── */}
+      {mobileFilterOpen && (
+        <View className="border-b border-brand-border bg-white px-4 py-3 md:hidden">
+          {/* Category accordion */}
+          <AccordionSection
+            label={`Category${category ? ` · ${categories.find((c) => c.slug === category)?.name ?? ""}` : ""}`}
+            open={openSection === "category"}
+            onToggle={() => toggleSection("category")}
+          >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-2 pb-1">
+                <Chip active={!category} onPress={() => setCategory(undefined)} text="All" />
+                {categories.map((c) => (
+                  <Chip
+                    key={c.slug}
+                    active={category === c.slug}
+                    onPress={() => { setCategory(c.slug); toggleSection(null); }}
+                    text={`${c.icon} ${c.name}`}
+                  />
+                ))}
+              </View>
+            </ScrollView>
+          </AccordionSection>
+
+          {/* Teaching mode */}
+          <AccordionSection
+            label={`Mode · ${teachingMode === "all" ? "Any" : TEACHING_MODES.find((m) => m.value === teachingMode)?.label ?? teachingMode}`}
+            open={openSection === "mode"}
+            onToggle={() => toggleSection("mode")}
+          >
+            <View className="flex-row flex-wrap gap-2 pb-1">
+              <Chip active={teachingMode === "all"} onPress={() => setTeachingMode("all")} text="Any" />
+              {TEACHING_MODES.map((m) => (
+                <Chip
+                  key={m.value}
+                  active={teachingMode === m.value}
+                  onPress={() => { setTeachingMode(m.value); toggleSection(null); }}
+                  text={m.label}
+                />
+              ))}
+            </View>
+          </AccordionSection>
+
+          {/* Fee */}
+          <AccordionSection
+            label={`Fee · ${FEE_PRESETS[feeIdx].label}`}
+            open={openSection === "fee"}
+            onToggle={() => toggleSection("fee")}
+          >
+            <View className="flex-row flex-wrap gap-2 pb-1">
+              {FEE_PRESETS.map((f, i) => (
+                <Chip
+                  key={f.label}
+                  active={feeIdx === i}
+                  onPress={() => { setFeeIdx(i); toggleSection(null); }}
+                  text={f.label}
+                />
+              ))}
+            </View>
+          </AccordionSection>
+
+          {/* Demo + Sort in one row */}
+          <View className="mt-2 flex-row flex-wrap gap-2">
+            <Chip
+              active={demoOnly}
+              onPress={() => setDemoOnly((v) => !v)}
+              text={demoOnly ? "✅ Demo only" : "Demo available"}
+            />
+            {SORTS.map((s) => (
+              <Chip key={s.value} active={sort === s.value} onPress={() => setSort(s.value)} text={s.label} />
+            ))}
+          </View>
+        </View>
+      )}
+
+      <View className="mx-auto w-full max-w-6xl flex-col gap-6 px-3 py-4 md:flex-row md:px-4 md:py-6">
+        {/* ── Desktop sidebar filters ── */}
+        <View className="hidden w-64 md:flex">
           <Text className="mb-3 font-heading text-lg font-bold text-purple">Filters</Text>
 
           <FilterGroup label="Category">
@@ -165,14 +313,16 @@ export default function Search() {
           </FilterGroup>
         </View>
 
-        {/* Results */}
+        {/* ── Results ── */}
         <View className="flex-1">
-          <Text className="mb-4 font-body text-sm text-text-muted">
-            {loading && coaches.length === 0 ? "Searching…" : `${total} coach${total === 1 ? "" : "es"} found`}
+          <Text className="mb-3 font-body text-sm text-text-muted">
+            {loading && coaches.length === 0
+              ? "Searching…"
+              : `${total} coach${total === 1 ? "" : "es"} found`}
           </Text>
 
           {coaches.length === 0 && !loading ? (
-            <View className="items-center rounded-2xl border border-brand-border bg-white p-10">
+            <View className="items-center rounded-2xl border border-brand-border bg-white p-8">
               <Text className="text-4xl">🔍</Text>
               <Text className="mt-3 text-center font-heading text-lg font-bold text-purple">
                 Koi coach nahi mila. Register karo!
@@ -185,7 +335,7 @@ export default function Search() {
               </Pressable>
             </View>
           ) : (
-            <View className="flex-row flex-wrap gap-4">
+            <View className="flex-row flex-wrap gap-3">
               {coaches.map((c) => (
                 <View key={c.id} className="w-full md:w-[48%] lg:w-[31.5%]">
                   <CoachCard coach={c} onWhatsAppClick={onWhatsApp} />
@@ -216,11 +366,35 @@ export default function Search() {
   );
 }
 
+// ── Shared primitives ─────────────────────────────────────────────────────────
+
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View className="mb-5">
       <Text className="mb-2 font-heading text-sm font-semibold text-purple">{label}</Text>
       <View className="flex-row flex-wrap gap-2">{children}</View>
+    </View>
+  );
+}
+
+function AccordionSection({
+  label,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <View className="mb-1 border-b border-brand-border">
+      <Pressable onPress={onToggle} className="flex-row items-center justify-between py-2.5">
+        <Text className="font-heading text-sm font-semibold text-purple">{label}</Text>
+        <Text className="text-purple">{open ? "▲" : "▼"}</Text>
+      </Pressable>
+      {open && <View className="pb-3">{children}</View>}
     </View>
   );
 }
@@ -233,7 +407,9 @@ function Chip({ text, active, onPress }: { text: string; active: boolean; onPres
         active ? "border-red bg-red" : "border-brand-border bg-white"
       }`}
     >
-      <Text className={`text-xs ${active ? "font-semibold text-white" : "text-purple"}`}>{text}</Text>
+      <Text className={`text-xs ${active ? "font-semibold text-white" : "text-purple"}`}>
+        {text}
+      </Text>
     </Pressable>
   );
 }

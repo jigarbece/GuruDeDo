@@ -199,9 +199,14 @@ public class CoachService
         if (q.Featured == true)
             filters.Add("featured=eq.true");
         if (!string.IsNullOrWhiteSpace(q.Skill))
-            // match the skill against the sub_skills array (case-insensitive contains)
-            filters.Add($"sub_skills=cs.{{{Esc(q.Skill)}}}");
-    }
+        {
+            // Case-insensitive skill search:
+            // 1. sub_skills array: cast to text and ilike match
+            // 2. Also match against bio and full_name for broader relevance
+            var skillEsc = Esc(q.Skill.ToLowerInvariant());
+            // PostgREST: use ilike on the array cast + OR against name/bio
+            filters.Add($"or=(sub_skills.cs.{{{Esc(q.Skill)}}},full_name.ilike.*{skillEsc}*,bio.ilike.*{skillEsc}*)");
+        }    }
 
     private static string Esc(string value) => HttpUtility.UrlEncode(value);
 }

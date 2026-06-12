@@ -10,14 +10,17 @@ const LINKS = [
 
 export default function Footer() {
   return (
-    <View className="w-full bg-purple px-4 py-10">
+    // Dark charcoal background — logo-main's colours pop against it and
+    // neither the purple nor the coloured text gets lost.
+    <View style={{ backgroundColor: "#1A1A2E" }} className="w-full px-4 py-10">
       <View className="mx-auto w-full max-w-6xl items-center gap-4">
         <Image
           source={require("../assets/logo-main.png")}
           style={{ width: 220, height: 110 }}
           resizeMode="contain"
         />
-        <Text className="font-body text-sm text-white/90">
+
+        <Text className="font-body text-sm text-white/80">
           Guru chahiye? Gurudedo!
         </Text>
         <Text className="font-heading text-sm font-semibold text-pink">
@@ -28,7 +31,7 @@ export default function Footer() {
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} asChild>
               <Pressable>
-                <Text className="font-body text-sm text-white/90">{l.label}</Text>
+                <Text className="font-body text-sm text-white/80">{l.label}</Text>
               </Pressable>
             </Link>
           ))}
@@ -38,7 +41,7 @@ export default function Footer() {
           <Text className="font-body text-sm text-pink">hello@gurudedo.com</Text>
         </Pressable>
 
-        <Text className="text-center font-body text-xs text-white/60">
+        <Text className="text-center font-body text-xs text-white/50">
           © 2026 Gurudedo | Made with ❤️ in Ahmedabad 🇮🇳
         </Text>
       </View>
