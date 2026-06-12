@@ -14,6 +14,7 @@ import {
 } from "../../constants/categories";
 import { useCity } from "../../lib/city";
 import { formatFee, teachingModeLabel } from "../../lib/format";
+import AreaAutocomplete from "../../components/AreaAutocomplete";
 import type { Category } from "../../lib/types";
 
 interface FormState {
@@ -300,10 +301,12 @@ export default function Register() {
                 </View>
               </Field>
               <Field label="Area / Locality *">
-                <Input
+                <AreaAutocomplete
                   value={form.area}
                   onChangeText={(v) => set("area", v)}
-                  placeholder="Your area or locality"
+                  placeholder="Start typing your area…"
+                  cityBias={form.city}
+                  wrapperClassName=""
                 />
                 {getAreasForCity(form.city).length > 0 && (
                   <>

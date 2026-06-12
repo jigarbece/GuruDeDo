@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import AreaAutocomplete from "./AreaAutocomplete";
+import { useCity } from "../lib/city";
 
 interface Props {
   initialSkill?: string;
@@ -10,6 +12,7 @@ interface Props {
 export default function SearchBar({ initialSkill = "", initialArea = "", onSearch }: Props) {
   const [skill, setSkill] = useState(initialSkill);
   const [area, setArea] = useState(initialArea);
+  const city = useCity();
 
   const submit = () => onSearch(skill.trim(), area.trim());
 
@@ -23,13 +26,13 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
         onSubmitEditing={submit}
         className="flex-1 rounded-xl border border-brand-border px-4 py-3 font-body text-base text-text-dark"
       />
-      <TextInput
+      <AreaAutocomplete
         value={area}
         onChangeText={setArea}
         placeholder="Your area or locality"
-        placeholderTextColor="#9CA3AF"
+        cityBias={city}
         onSubmitEditing={submit}
-        className="flex-1 rounded-xl border border-brand-border px-4 py-3 font-body text-base text-text-dark"
+        wrapperClassName="flex-1"
       />
       <Pressable
         onPress={submit}
