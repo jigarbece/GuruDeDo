@@ -1,4 +1,3 @@
-using System.Web;
 using Gurudedo.API.Models;
 using Gurudedo.API.Models.DTOs;
 
@@ -234,40 +233,54 @@ public class CoachService
 
     private static void AppendCommonFilters(List<string> filters, CoachQuery q)
     {
+        // City filter: always applied as an exact match on the city column.
         if (!string.IsNullOrWhiteSpace(q.City))
-            filters.Add($"city=eq.{Esc(q.City)}");
+            filters.Add($"city=ilike.{Uri.EscapeDataString(q.City.Trim())}");
+
+        // Area filter: applied only when the area value is NOT the same as the
+        // city (prevents "Ahmedabad" in the area box from filtering on the area
+        // column and returning zero results).
         if (!string.IsNullOrWhiteSpace(q.Area))
-            filters.Add($"area=ilike.*{Esc(q.Area)}*");
+        {
+            var areaTrim = q.Area.Trim();
+            var cityTrim = (q.City ?? "").Trim();
+            bool areaIsSameAsCity = string.Equals(areaTrim, cityTrim, StringComparison.OrdinalIgnoreCase);
+
+            if (!areaIsSameAsCity)
+            {
+                // Partial, case-insensitive match on the area column.
+                var areaEnc = Uri.EscapeDataString("%" + areaTrim.Replace("%", "\\%").Replace("_", "\\_") + "%");
+                filters.Add($"area.ilike.{areaEnc}");
+            }
+            // If area == city the user just typed the city name in the area box;
+            // the city filter above already scopes results to that city — nothing more to add.
+        }
+
         if (!string.IsNullOrWhiteSpace(q.CategoryId))
-            filters.Add($"category_id=eq.{Esc(q.CategoryId)}");
+            filters.Add($"category_id=eq.{Uri.EscapeDataString(q.CategoryId)}");
         if (q.MinFee.HasValue)
             filters.Add($"fee_min=gte.{q.MinFee.Value}");
         if (q.MaxFee.HasValue)
             filters.Add($"fee_max=lte.{q.MaxFee.Value}");
         if (!string.IsNullOrWhiteSpace(q.TeachingMode) && q.TeachingMode != "all")
-            filters.Add($"teaching_mode=in.({Esc(q.TeachingMode)},all)");
+            filters.Add($"teaching_mode=in.({Uri.EscapeDataString(q.TeachingMode)},all)");
         if (q.DemoAvailable == true)
             filters.Add("demo_available=eq.true");
         if (q.Featured == true)
             filters.Add("featured=eq.true");
         if (!string.IsNullOrWhiteSpace(q.Skill))
         {
-            // Partial, case-insensitive skill search using PostgREST's ilike operator.
-            //
-            // sub_skills is a TEXT[] column. PostgREST does not support ilike directly
-            // on arrays, but casting to text gives us a string like '{"Guitar","Keyboard"}'
-            // which we can ilike-match. We also search bio and category name.
-            //
-            // The ::text cast is expressed in PostgREST filter syntax as:
-            //   sub_skills::text=ilike.*term*
-            // Combined with bio and full_name via or().
-            var term = "%" + q.Skill.Replace("%", "\\%").Replace("_", "\\_") + "%";
+            // Partial, case-insensitive skill search.
+            // sub_skills::text produces '{"Guitar","Keyboard"}' — ilike matches substrings.
+            // Also searches bio and full_name for broader relevance.
+            var term = "%" + q.Skill.Trim().Replace("%", "\\%").Replace("_", "\\_") + "%";
             var termEnc = Uri.EscapeDataString(term);
             filters.Add(
                 $"or=(sub_skills::text.ilike.{termEnc},bio.ilike.{termEnc},full_name.ilike.{termEnc})");
         }
+    }
 
-    private static string Esc(string value) => HttpUtility.UrlEncode(value);
+    private static string Esc(string value) => Uri.EscapeDataString(value);
 }
 
 /// <summary>Normalised query parameters for coach listing/search.</summary>
