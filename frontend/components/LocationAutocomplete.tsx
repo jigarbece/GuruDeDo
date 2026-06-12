@@ -15,16 +15,18 @@ import {
 import type { Coords } from "../lib/city";
 
 // ── Web portal ────────────────────────────────────────────────────────────────
-// Renders the dropdown into document.body so no parent stacking context
-// can ever clip it.
-let DropdownPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => <>{children}</>;
+let DropdownPortal: React.FC<{
+  children: React.ReactNode;
+  onMouseDown?: () => void;
+}> = ({ children }) => <>{children}</>;
+
 if (Platform.OS === "web" && typeof document !== "undefined") {
   const ReactDOM = require("react-dom");
-  DropdownPortal = ({ children }) => {
+
+  DropdownPortal = ({ children, onMouseDown }) => {
     const el = useRef<HTMLDivElement | null>(null);
     if (!el.current) {
       el.current = document.createElement("div");
-      // Zero-size fixed container — pointer-events on children handled individually
       el.current.style.cssText =
         "position:fixed;top:0;left:0;width:0;height:0;z-index:99999;";
       document.body.appendChild(el.current);
@@ -36,7 +38,21 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
       },
       []
     );
-    return ReactDOM.createPortal(children, el.current);
+
+    // Wrap children in a div that intercepts mousedown so the input doesn't
+    // blur before the click on a suggestion registers.
+    const wrapper = (
+      <div
+        onMouseDown={(e) => {
+          e.preventDefault(); // prevent input blur
+          onMouseDown?.();
+        }}
+      >
+        {children}
+      </div>
+    );
+
+    return ReactDOM.createPortal(wrapper, el.current);
   };
 }
 
@@ -56,15 +72,16 @@ interface Props {
   coordBias?: Coords | null;
   onSubmitEditing?: () => void;
   wrapperClassName?: string;
-  /** Restrict suggestions to cities only (used in registration city field). */
   citiesOnly?: boolean;
+  /** Called by parent (SearchBar) to force-close this dropdown */
+  closeRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 // ── Colours ───────────────────────────────────────────────────────────────────
 const CITY_BADGE = { bg: "#EDE9FE", fg: "#5B2C8C" };
 const AREA_BADGE = { bg: "#FFF7ED", fg: "#C2410C" };
 
-// ── Dropdown shell styles ─────────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────────────────────
 function portalStyle(pos: { top: number; left: number; width: number }) {
   return {
     position: "fixed" as const,
@@ -77,16 +94,16 @@ function portalStyle(pos: { top: number; left: number; width: number }) {
     borderWidth: 1,
     borderColor: "#E5E7EB",
     shadowColor: "#000",
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.14,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     overflow: "hidden" as const,
   };
 }
 
-const inlineStyle = {
-  position: "absolute" as const,
-  top: "100%" as any,
+const inlineStyle: object = {
+  position: "absolute",
+  top: "100%",
   left: 0,
   right: 0,
   zIndex: 1000,
@@ -99,7 +116,7 @@ const inlineStyle = {
   shadowOpacity: 0.10,
   shadowRadius: 12,
   shadowOffset: { width: 0, height: 4 },
-  overflow: "hidden" as const,
+  overflow: "hidden",
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -112,24 +129,36 @@ export default function LocationAutocomplete({
   onSubmitEditing,
   wrapperClassName,
   citiesOnly = false,
+  closeRef,
 }: Props) {
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [activeIdx, setActiveIdx] = useState(-1);
 
   const justPickedRef = useRef(false);
+  // Tracks whether the mouse is currently pressed inside the dropdown.
+  // Used to prevent onBlur from closing the dropdown mid-click.
+  const mouseInDropdownRef = useRef(false);
+
   const [dropdownPos, setDropdownPos] = useState<{
-    top: number;
-    left: number;
-    width: number;
+    top: number; left: number; width: number;
   } | null>(null);
 
   const inputRef = useRef<TextInput>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // ── measure input position for portal ──────────────────────────────────────
+  // Expose close() to parent so SearchBar can close on submit
+  useEffect(() => {
+    if (closeRef) {
+      closeRef.current = () => {
+        setOpen(false);
+        setSuggestions([]);
+      };
+    }
+  }, [closeRef]);
+
   const measureInput = () => {
     if (Platform.OS !== "web") return;
     const node = (inputRef.current as any) as HTMLElement | null;
@@ -141,7 +170,7 @@ export default function LocationAutocomplete({
   const filter = (list: LocationSuggestion[]) =>
     citiesOnly ? list.filter((s) => s.type === "city") : list;
 
-  // ── search effect ───────────────────────────────────────────────────────────
+  // ── search effect ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (justPickedRef.current) {
       justPickedRef.current = false;
@@ -157,16 +186,13 @@ export default function LocationAutocomplete({
       return;
     }
 
-    // Instant static results — zero latency
     const instant = filter(getInstantLocationSuggestions(q));
     if (instant.length > 0) {
       setSuggestions(instant);
-      setActiveIdx(-1);
       measureInput();
       setOpen(true);
     }
 
-    // Live Photon results after debounce
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       abortRef.current?.abort();
@@ -177,95 +203,78 @@ export default function LocationAutocomplete({
         if (!ctrl.signal.aborted && !justPickedRef.current) {
           const merged = filter(live.length > 0 ? live : instant);
           setSuggestions(merged);
-          setActiveIdx(-1);
-          if (merged.length > 0) {
-            measureInput();
-            setOpen(true);
-          }
+          if (merged.length > 0) { measureInput(); setOpen(true); }
         }
-      } catch {
-        /* network/abort — static results remain */
-      } finally {
-        if (!ctrl.signal.aborted) setLoading(false);
-      }
+      } catch { /* abort/network — static shown */ }
+      finally { if (!ctrl.signal.aborted) setLoading(false); }
     }, 280);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, coordBias?.lat, coordBias?.lon]);
 
-  // ── pick a suggestion ───────────────────────────────────────────────────────
+  // ── pick ───────────────────────────────────────────────────────────────────
   const pick = (s: LocationSuggestion) => {
     justPickedRef.current = true;
+    mouseInDropdownRef.current = false;
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     setSuggestions([]);
     setOpen(false);
     setLoading(false);
-    setActiveIdx(-1);
     onChangeText(s.displayName);
     onSelect({ type: s.type, city: s.city, area: s.area, displayName: s.displayName });
   };
 
-  // ── highlight matching text ─────────────────────────────────────────────────
+  // ── highlight ─────────────────────────────────────────────────────────────
   const Hl = ({ text }: { text: string }) => {
     const q = value.trim();
-    if (!q) return <Text style={styles.rowTitle}>{text}</Text>;
+    if (!q) return <Text style={S.rowTitle}>{text}</Text>;
     const i = text.toLowerCase().indexOf(q.toLowerCase());
-    if (i < 0) return <Text style={styles.rowTitle}>{text}</Text>;
+    if (i < 0) return <Text style={S.rowTitle}>{text}</Text>;
     return (
-      <Text style={styles.rowTitle}>
+      <Text style={S.rowTitle}>
         {text.slice(0, i)}
-        <Text style={styles.rowTitleBold}>{text.slice(i, i + q.length)}</Text>
+        <Text style={S.rowBold}>{text.slice(i, i + q.length)}</Text>
         {text.slice(i + q.length)}
       </Text>
     );
   };
 
-  // ── dropdown ────────────────────────────────────────────────────────────────
-  const dropdown =
+  // ── dropdown content ───────────────────────────────────────────────────────
+  const dropdownContent =
     open && suggestions.length > 0 ? (
       <View style={dropdownPos && Platform.OS === "web" ? portalStyle(dropdownPos) : inlineStyle}>
-        {/* Header */}
-        <View style={styles.dropHeader}>
-          <Text style={styles.dropHeaderText}>Suggestions</Text>
+        {/* Header row */}
+        <View style={S.header}>
+          <Text style={S.headerText}>SUGGESTIONS</Text>
           {loading && <ActivityIndicator size="small" color="#5B2C8C" style={{ marginLeft: 6 }} />}
         </View>
 
         {suggestions.map((s, i) => {
           const badge = s.type === "city" ? CITY_BADGE : AREA_BADGE;
-          const isLast = i === suggestions.length - 1;
           return (
             <Pressable
               key={`${s.displayName}-${i}`}
               onPress={() => pick(s)}
               style={({ pressed }) => [
-                styles.row,
-                i === activeIdx && styles.rowActive,
-                pressed && styles.rowPressed,
-                !isLast && styles.rowBorder,
+                S.row,
+                i < suggestions.length - 1 && S.rowBorder,
+                pressed && S.rowPressed,
               ]}
             >
-              {/* Left: icon + text */}
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconBox, { backgroundColor: badge.bg }]}>
-                  <Text style={styles.iconText}>
-                    {s.type === "city" ? "🏙️" : "📍"}
-                  </Text>
+              <View style={S.rowLeft}>
+                <View style={[S.iconWrap, { backgroundColor: badge.bg }]}>
+                  <Text style={S.icon}>{s.type === "city" ? "🏙️" : "📍"}</Text>
                 </View>
-                <View style={styles.rowTextCol}>
+                <View style={{ flex: 1 }}>
                   <Hl text={s.type === "area" ? (s.area ?? s.displayName) : s.displayName} />
-                  {s.type === "area" && s.city ? (
-                    <Text style={styles.rowSub}>{s.city}</Text>
-                  ) : null}
+                  {s.type === "area" && s.city
+                    ? <Text style={S.rowSub}>{s.city}</Text>
+                    : null}
                 </View>
               </View>
-
-              {/* Right: badge pill */}
-              <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-                <Text style={[styles.badgeText, { color: badge.fg }]}>
-                  {s.badge}
-                </Text>
+              <View style={[S.pill, { backgroundColor: badge.bg }]}>
+                <Text style={[S.pillText, { color: badge.fg }]}>{s.badge}</Text>
               </View>
             </Pressable>
           );
@@ -273,13 +282,10 @@ export default function LocationAutocomplete({
       </View>
     ) : null;
 
+  // ── render ─────────────────────────────────────────────────────────────────
   return (
-    <View
-      style={{ position: "relative", zIndex: 100 }}
-      className={wrapperClassName ?? "flex-1"}
-    >
-      {/* Input */}
-      <View style={styles.inputWrap}>
+    <View style={{ position: "relative", zIndex: 100 }} className={wrapperClassName ?? "flex-1"}>
+      <View style={{ position: "relative" }}>
         <TextInput
           ref={inputRef}
           value={value}
@@ -287,36 +293,46 @@ export default function LocationAutocomplete({
           placeholder={placeholder ?? "City or area…"}
           placeholderTextColor="#9CA3AF"
           onFocus={() => {
-            if (suggestions.length > 0) {
-              measureInput();
-              setOpen(true);
-            }
+            if (suggestions.length > 0) { measureInput(); setOpen(true); }
           }}
-          onBlur={() => setTimeout(() => setOpen(false), 160)}
+          onBlur={() => {
+            // Delay close so a tap/click on a suggestion can fire first.
+            // If mouseInDropdownRef is true we cancel the close entirely.
+            blurTimerRef.current = setTimeout(() => {
+              if (!mouseInDropdownRef.current) setOpen(false);
+            }, 200);
+          }}
           onSubmitEditing={onSubmitEditing}
-          style={styles.input}
+          style={S.input}
         />
         {loading && (
-          <View pointerEvents="none" style={styles.spinner}>
+          <View pointerEvents="none" style={S.spinner}>
             <ActivityIndicator size="small" color="#5B2C8C" />
           </View>
         )}
       </View>
 
       {Platform.OS === "web" ? (
-        <DropdownPortal>{dropdown}</DropdownPortal>
+        <DropdownPortal
+          onMouseDown={() => {
+            // mousedown fires before blur — set flag so blur doesn't close dropdown
+            mouseInDropdownRef.current = true;
+            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+            // Reset the flag after a short window (in case click doesn't register)
+            setTimeout(() => { mouseInDropdownRef.current = false; }, 500);
+          }}
+        >
+          {dropdownContent}
+        </DropdownPortal>
       ) : (
-        dropdown
+        dropdownContent
       )}
     </View>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-const styles = {
-  inputWrap: {
-    position: "relative" as const,
-  },
+// ── StyleSheet ────────────────────────────────────────────────────────────────
+const S = {
   input: {
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -326,28 +342,22 @@ const styles = {
     fontSize: 15,
     color: "#111827",
     backgroundColor: "#fff",
-    fontFamily: undefined, // uses system font — NativeWind classes handle web
-  },
-  spinner: {
-    position: "absolute" as const,
-    right: 12,
-    top: 13,
-  },
-  dropHeader: {
+  } as object,
+  spinner: { position: "absolute" as const, right: 12, top: 13 },
+  header: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 7,
     backgroundColor: "#F9FAFB",
     borderBottomWidth: 1,
     borderBottomColor: "#F3F4F6",
   },
-  dropHeaderText: {
-    fontSize: 11,
-    fontWeight: "600" as const,
-    color: "#6B7280",
-    letterSpacing: 0.5,
-    textTransform: "uppercase" as const,
+  headerText: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: "#9CA3AF",
+    letterSpacing: 0.8,
   },
   row: {
     flexDirection: "row" as const,
@@ -356,52 +366,37 @@ const styles = {
     paddingHorizontal: 14,
     paddingVertical: 11,
     backgroundColor: "#fff",
+    cursor: "pointer" as any,
   },
-  rowActive: { backgroundColor: "#F5F3FF" },
-  rowPressed: { backgroundColor: "#EDE9FE" },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: "#F3F4F6" },
+  rowPressed: { backgroundColor: "#EDE9FE" },
   rowLeft: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     flex: 1,
     gap: 10,
   },
-  iconBox: {
+  iconWrap: {
     width: 32,
     height: 32,
     borderRadius: 8,
     alignItems: "center" as const,
     justifyContent: "center" as const,
-    flexShrink: 0,
   },
-  iconText: { fontSize: 16 },
-  rowTextCol: { flex: 1 },
+  icon: { fontSize: 16 },
   rowTitle: {
     fontSize: 14,
     color: "#111827",
     fontWeight: "500" as const,
     lineHeight: 20,
   },
-  rowTitleBold: {
-    fontWeight: "700" as const,
-    color: "#E63946",
-  },
-  rowSub: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 1,
-    lineHeight: 16,
-  },
-  badge: {
+  rowBold: { fontWeight: "700" as const, color: "#E63946" },
+  rowSub: { fontSize: 12, color: "#6B7280", marginTop: 1, lineHeight: 16 },
+  pill: {
     borderRadius: 20,
-    paddingHorizontal: 9,
+    paddingHorizontal: 8,
     paddingVertical: 3,
     marginLeft: 10,
-    flexShrink: 0,
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "700" as const,
-    letterSpacing: 0.3,
-  },
+  pillText: { fontSize: 10, fontWeight: "700" as const, letterSpacing: 0.3 },
 };

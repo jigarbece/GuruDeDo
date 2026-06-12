@@ -3,11 +3,15 @@ import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from "r
 import { CoachApi } from "../lib/api";
 import { CATEGORIES } from "../constants/categories";
 
-// ---- Web portal (same pattern as AreaAutocomplete) --------------------------
-let DropdownPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => <>{children}</>;
+// ---- Web portal (same pattern as LocationAutocomplete) ----------------------
+let DropdownPortal: React.FC<{
+  children: React.ReactNode;
+  onMouseDown?: () => void;
+}> = ({ children }) => <>{children}</>;
+
 if (Platform.OS === "web" && typeof document !== "undefined") {
   const ReactDOM = require("react-dom");
-  DropdownPortal = ({ children }) => {
+  DropdownPortal = ({ children, onMouseDown }) => {
     const el = useRef<HTMLDivElement | null>(null);
     if (!el.current) {
       el.current = document.createElement("div");
@@ -22,7 +26,17 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
         }
       };
     }, []);
-    return ReactDOM.createPortal(children, el.current);
+    const wrapper = (
+      <div
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onMouseDown?.();
+        }}
+      >
+        {children}
+      </div>
+    );
+    return ReactDOM.createPortal(wrapper, el.current);
   };
 }
 
@@ -100,6 +114,7 @@ interface Props {
   onSelect: (skill: string) => void;
   onSubmitEditing?: () => void;
   placeholder?: string;
+  closeRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export default function SkillAutocomplete({
@@ -108,11 +123,14 @@ export default function SkillAutocomplete({
   onSelect,
   onSubmitEditing,
   placeholder = "Guitar, Yoga, Math...",
+  closeRef,
 }: Props) {
   const [suggestions, setSuggestions] = useState<Array<{ label: string; sub?: string }>>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const justPickedRef = useRef(false);
+  const mouseInDropdownRef = useRef(false);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [dropdownPos, setDropdownPos] = useState<{
     top: number; left: number; width: number;
@@ -120,6 +138,12 @@ export default function SkillAutocomplete({
   const inputRef = useRef<TextInput>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (closeRef) {
+      closeRef.current = () => { setOpen(false); setSuggestions([]); };
+    }
+  }, [closeRef]);
 
   const measureInput = () => {
     if (Platform.OS !== "web") return;
