@@ -40,16 +40,10 @@ export default function Home() {
       <View className="items-center px-4 pb-10 pt-10">
         <View className="w-full max-w-3xl items-center">
           <Image
-            source={require("../../assets/logo.png")}
-            style={{ width: 140, height: 140 }}
+            source={require("../../assets/logo-main.png")}
+            style={{ width: 320, height: 160 }}
             resizeMode="contain"
           />
-          <Text className="mt-3 font-heading text-4xl font-bold text-purple md:text-5xl">
-            Guru chahiye?
-          </Text>
-          <Text className="font-heading text-5xl font-extrabold text-red md:text-7xl">
-            Gurudedo!
-          </Text>
           <Text className="mt-3 text-center font-heading text-base font-semibold text-teal md:text-lg">
             Find the Right Teacher. Learn Any Skill.
           </Text>

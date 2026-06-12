@@ -13,7 +13,7 @@ export default function Footer() {
     <View className="w-full bg-purple px-4 py-10">
       <View className="mx-auto w-full max-w-6xl items-center gap-4">
         <Image
-          source={require("../assets/logo.png")}
+          source={require("../assets/logo-side.png")}
           style={{ width: 64, height: 64 }}
           resizeMode="contain"
         />

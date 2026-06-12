@@ -30,7 +30,7 @@ export default function Navbar() {
         <Link href="/" asChild>
           <Pressable className="flex-row items-center gap-2">
             <Image
-              source={require("../assets/logo.png")}
+              source={require("../assets/logo-side.png")}
               style={{ width: 44, height: 44 }}
               resizeMode="contain"
             />
