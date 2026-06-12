@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import SkillAutocomplete from "./SkillAutocomplete";
 import LocationAutocomplete, { type LocationSelection } from "./LocationAutocomplete";
@@ -11,64 +11,28 @@ interface Props {
   onSearch: (skill: string, location: LocationSelection | null) => void;
 }
 
-/**
- * Resolve raw free-text to a LocationSelection.
- *
- * Priority:
- * 1. Exact city match (case-insensitive)   → type="city"
- * 2. "Area, City" comma format             → type="area"
- * 3. Known area in our data               → type="area" with its parent city
- * 4. Fallback: treat as city              → type="city" (backend will ilike both cols)
- */
 function resolveRawText(raw: string): LocationSelection {
-  const trimmed = raw.trim();
-
-  // 1. Exact city match
-  const cityMatch = MAJOR_INDIAN_CITIES.find(
-    (c) => c.toLowerCase() === trimmed.toLowerCase()
-  );
+  const t = raw.trim();
+  const cityMatch = MAJOR_INDIAN_CITIES.find((c) => c.toLowerCase() === t.toLowerCase());
   if (cityMatch) return { type: "city", city: cityMatch, displayName: cityMatch };
 
-  // 2. "Area, City" comma format
-  const commaIdx = trimmed.indexOf(",");
-  if (commaIdx > 0) {
-    const areaPart = trimmed.slice(0, commaIdx).trim();
-    const cityPart = trimmed.slice(commaIdx + 1).trim();
-    if (cityPart) {
-      return { type: "area", city: cityPart, area: areaPart, displayName: trimmed };
-    }
+  const ci = t.indexOf(",");
+  if (ci > 0) {
+    const a = t.slice(0, ci).trim();
+    const c = t.slice(ci + 1).trim();
+    if (c) return { type: "area", city: c, area: a, displayName: t };
   }
 
-  // 3. Known area anywhere in our dataset
   for (const [city, areas] of Object.entries(AREAS_BY_CITY)) {
-    const areaMatch = areas.find((a) => a.toLowerCase() === trimmed.toLowerCase());
-    if (areaMatch) {
-      return {
-        type: "area",
-        city,
-        area: areaMatch,
-        displayName: `${areaMatch}, ${city}`,
-      };
-    }
+    const m = areas.find((a) => a.toLowerCase() === t.toLowerCase());
+    if (m) return { type: "area", city, area: m, displayName: `${m}, ${city}` };
   }
-
-  // 4. Partial area match (e.g. "bop" → "Bopal, Ahmedabad")
   for (const [city, areas] of Object.entries(AREAS_BY_CITY)) {
-    const areaMatch = areas.find((a) =>
-      a.toLowerCase().includes(trimmed.toLowerCase())
-    );
-    if (areaMatch) {
-      return {
-        type: "area",
-        city,
-        area: areaMatch,
-        displayName: `${areaMatch}, ${city}`,
-      };
-    }
+    const m = areas.find((a) => a.toLowerCase().includes(t.toLowerCase()));
+    if (m) return { type: "area", city, area: m, displayName: `${m}, ${city}` };
   }
 
-  // 5. Fallback — send as city; backend will OR against area column too
-  return { type: "city", city: trimmed, displayName: trimmed };
+  return { type: "city", city: t, displayName: t };
 }
 
 export default function SearchBar({ initialSkill = "", initialLocation = null, onSearch }: Props) {
@@ -77,16 +41,20 @@ export default function SearchBar({ initialSkill = "", initialLocation = null, o
   const [location, setLocation] = useState<LocationSelection | null>(initialLocation);
   const coords = useCoords();
 
+  // Refs that child components expose — calling them force-closes their dropdowns
+  const closeSkillRef = useRef<(() => void) | null>(null);
+  const closeLocationRef = useRef<(() => void) | null>(null);
+
   const handleLocationChange = (text: string) => {
     setLocationText(text);
-    // Invalidate picked selection when user edits the text
-    if (location && text !== location.displayName) {
-      setLocation(null);
-    }
+    if (location && text !== location.displayName) setLocation(null);
   };
 
   const submit = () => {
-    // Use the picked location if available; otherwise resolve the raw text
+    // Close both dropdowns immediately
+    closeSkillRef.current?.();
+    closeLocationRef.current?.();
+
     const effectiveLocation: LocationSelection | null =
       location ?? (locationText.trim() ? resolveRawText(locationText) : null);
     onSearch(skill.trim(), effectiveLocation);
@@ -104,6 +72,7 @@ export default function SearchBar({ initialSkill = "", initialLocation = null, o
           onSelect={(s) => setSkill(s)}
           onSubmitEditing={submit}
           placeholder="Guitar, Yoga, Math..."
+          closeRef={closeSkillRef}
         />
 
         <LocationAutocomplete
@@ -117,6 +86,7 @@ export default function SearchBar({ initialSkill = "", initialLocation = null, o
           coordBias={coords}
           onSubmitEditing={submit}
           wrapperClassName="md:flex-1"
+          closeRef={closeLocationRef}
         />
 
         <Pressable

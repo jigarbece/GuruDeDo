@@ -212,6 +212,8 @@ export default function SkillAutocomplete({
 
   const pick = (label: string) => {
     justPickedRef.current = true;
+    mouseInDropdownRef.current = false;
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     setSuggestions([]);
     setOpen(false);
     setLoading(false);
@@ -319,7 +321,11 @@ export default function SkillAutocomplete({
               setOpen(true);
             }
           }}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onBlur={() => {
+            blurTimerRef.current = setTimeout(() => {
+              if (!mouseInDropdownRef.current) setOpen(false);
+            }, 200);
+          }}
           onSubmitEditing={onSubmitEditing}
           style={{ flex: 1 }}
           className="rounded-xl border border-brand-border bg-white px-4 py-3 font-body text-base text-text-dark"
@@ -332,7 +338,15 @@ export default function SkillAutocomplete({
       </View>
 
       {Platform.OS === "web" ? (
-        <DropdownPortal>{dropdownContent}</DropdownPortal>
+        <DropdownPortal
+          onMouseDown={() => {
+            mouseInDropdownRef.current = true;
+            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+            setTimeout(() => { mouseInDropdownRef.current = false; }, 500);
+          }}
+        >
+          {dropdownContent}
+        </DropdownPortal>
       ) : (
         dropdownContent
       )}
