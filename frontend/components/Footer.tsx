@@ -13,13 +13,10 @@ export default function Footer() {
     <View className="w-full bg-purple px-4 py-10">
       <View className="mx-auto w-full max-w-6xl items-center gap-4">
         <Image
-          source={require("../assets/logo-side.png")}
-          style={{ width: 64, height: 64 }}
+          source={require("../assets/logo-main.png")}
+          style={{ width: 220, height: 110 }}
           resizeMode="contain"
         />
-        <Text className="font-heading text-2xl font-extrabold text-white">
-          Gurudedo
-        </Text>
         <Text className="font-body text-sm text-white/90">
           Guru chahiye? Gurudedo!
         </Text>

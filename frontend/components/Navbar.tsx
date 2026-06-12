@@ -30,18 +30,15 @@ export default function Navbar() {
         <Link href="/" asChild>
           <Pressable className="flex-row items-center gap-2">
             <Image
-              source={require("../assets/logo-side.png")}
+              source={require("../assets/logo.png")}
               style={{ width: 44, height: 44 }}
               resizeMode="contain"
             />
-            <View>
-              <Text className="font-heading text-xl font-extrabold text-purple">
-                Gurudedo
-              </Text>
-              <Text className="font-body text-[10px] text-text-muted">
-                Find the Right Teacher
-              </Text>
-            </View>
+            <Image
+              source={require("../assets/logo-side.png")}
+              style={{ width: 110, height: 40 }}
+              resizeMode="contain"
+            />
           </Pressable>
         </Link>
 
