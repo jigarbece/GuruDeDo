@@ -233,28 +233,36 @@ public class CoachService
 
     private static void AppendCommonFilters(List<string> filters, CoachQuery q)
     {
-        // City filter: always applied as an exact match on the city column.
-        if (!string.IsNullOrWhiteSpace(q.City))
-            filters.Add($"city=ilike.{Uri.EscapeDataString(q.City.Trim())}");
+        // ── Location filtering ────────────────────────────────────────────────
+        // locationType drives the logic so we never accidentally mix city/area:
+        //
+        //   "city"  → filter by city only (return all areas of that city)
+        //   "area"  → filter by city AND area
+        //   null    → if city provided treat as city-level; no area filter
+        //
+        // This eliminates the old bug where "Ahmedabad" typed in an area box
+        // would match the area column and return zero results.
 
-        // Area filter: applied only when the area value is NOT the same as the
-        // city (prevents "Ahmedabad" in the area box from filtering on the area
-        // column and returning zero results).
-        if (!string.IsNullOrWhiteSpace(q.Area))
+        var cityTrim    = q.City?.Trim();
+        var areaTrim    = q.Area?.Trim();
+        var locType     = q.LocationType?.Trim().ToLowerInvariant();
+
+        if (!string.IsNullOrEmpty(cityTrim))
         {
-            var areaTrim = q.Area.Trim();
-            var cityTrim = (q.City ?? "").Trim();
-            bool areaIsSameAsCity = string.Equals(areaTrim, cityTrim, StringComparison.OrdinalIgnoreCase);
+            // Always add a city filter when a city is known.
+            filters.Add($"city.ilike.{Uri.EscapeDataString(cityTrim)}");
 
-            if (!areaIsSameAsCity)
+            if (locType == "area" && !string.IsNullOrEmpty(areaTrim))
             {
-                // Partial, case-insensitive match on the area column.
-                var areaEnc = Uri.EscapeDataString("%" + areaTrim.Replace("%", "\\%").Replace("_", "\\_") + "%");
-                filters.Add($"area.ilike.{areaEnc}");
+                // Area search: additionally filter by area column.
+                var areaPattern = Uri.EscapeDataString(
+                    "%" + areaTrim.Replace("%", "\\%").Replace("_", "\\_") + "%");
+                filters.Add($"area.ilike.{areaPattern}");
             }
-            // If area == city the user just typed the city name in the area box;
-            // the city filter above already scopes results to that city — nothing more to add.
+            // locType == "city" (or null): city filter alone is sufficient —
+            // no area filter, so all localities within that city are returned.
         }
+        // If no city provided at all, no location filter is applied (all-India).
 
         if (!string.IsNullOrWhiteSpace(q.CategoryId))
             filters.Add($"category_id=eq.{Uri.EscapeDataString(q.CategoryId)}");
@@ -272,7 +280,6 @@ public class CoachService
         {
             // Partial, case-insensitive skill search.
             // sub_skills::text produces '{"Guitar","Keyboard"}' — ilike matches substrings.
-            // Also searches bio and full_name for broader relevance.
             var term = "%" + q.Skill.Trim().Replace("%", "\\%").Replace("_", "\\_") + "%";
             var termEnc = Uri.EscapeDataString(term);
             filters.Add(
@@ -288,7 +295,8 @@ public class CoachQuery
 {
     public string? Skill { get; set; }
     public string? Area { get; set; }
-    public string City { get; set; } = "Ahmedabad";
+    public string? City { get; set; }          // null = no city filter
+    public string? LocationType { get; set; }  // "city" | "area" | null
     public string? CategoryId { get; set; }
     public int? MinFee { get; set; }
     public int? MaxFee { get; set; }

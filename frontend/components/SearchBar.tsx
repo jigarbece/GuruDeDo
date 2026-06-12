@@ -1,22 +1,42 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import SkillAutocomplete from "./SkillAutocomplete";
-import AreaAutocomplete from "./AreaAutocomplete";
-import { useCity, useCoords } from "../lib/city";
+import LocationAutocomplete, { type LocationSelection } from "./LocationAutocomplete";
+import { useCoords } from "../lib/city";
 
 interface Props {
   initialSkill?: string;
-  initialArea?: string;
-  onSearch: (skill: string, area: string) => void;
+  initialLocation?: LocationSelection | null;
+  onSearch: (skill: string, location: LocationSelection | null) => void;
 }
 
-export default function SearchBar({ initialSkill = "", initialArea = "", onSearch }: Props) {
+export default function SearchBar({ initialSkill = "", initialLocation = null, onSearch }: Props) {
   const [skill, setSkill] = useState(initialSkill);
-  const [area, setArea] = useState(initialArea);
-  const city = useCity();
+  const [locationText, setLocationText] = useState(initialLocation?.displayName ?? "");
+  const [location, setLocation] = useState<LocationSelection | null>(initialLocation);
   const coords = useCoords();
 
-  const submit = () => onSearch(skill.trim(), area.trim());
+  const handleLocationChange = (text: string) => {
+    setLocationText(text);
+    // If the user clears or changes the text after picking, invalidate the selection
+    // so we don't search with a stale location object.
+    if (location && text !== location.displayName) {
+      setLocation(null);
+    }
+  };
+
+  const submit = () => {
+    // If the user typed something but didn't pick a suggestion, treat their
+    // raw text as a city search (best-effort). This prevents the "" / null
+    // location falling back to Ahmedabad in the search page.
+    const effectiveLocation: LocationSelection | null =
+      location ??
+      (locationText.trim()
+        ? { type: "city", city: locationText.trim(), displayName: locationText.trim() }
+        : null);
+
+    onSearch(skill.trim(), effectiveLocation);
+  };
 
   return (
     <View
@@ -28,20 +48,20 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
         <SkillAutocomplete
           value={skill}
           onChangeText={setSkill}
-          onSelect={(s) => {
-            setSkill(s);
-            // Don't auto-submit — let the user also fill in area.
-          }}
+          onSelect={(s) => setSkill(s)}
           onSubmitEditing={submit}
           placeholder="Guitar, Yoga, Math..."
         />
 
-        {/* Area / locality autocomplete */}
-        <AreaAutocomplete
-          value={area}
-          onChangeText={setArea}
-          placeholder="Your area or locality"
-          cityBias={city}
+        {/* Location — city or area/locality */}
+        <LocationAutocomplete
+          value={locationText}
+          onChangeText={handleLocationChange}
+          onSelect={(loc) => {
+            setLocation(loc);
+            setLocationText(loc.displayName);
+          }}
+          placeholder="City or area (e.g. Ahmedabad, Bopal)"
           coordBias={coords}
           onSubmitEditing={submit}
           wrapperClassName="md:flex-1"

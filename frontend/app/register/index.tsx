@@ -4,17 +4,15 @@ import { useRouter } from "expo-router";
 import Footer from "../../components/Footer";
 import { CategoryApi, CoachApi } from "../../lib/api";
 import {
-  MAJOR_INDIAN_CITIES,
-  getAreasForCity,
   FEE_TYPES,
   GENDERS,
   LANGUAGES,
   TEACHING_MODES,
   CATEGORIES,
 } from "../../constants/categories";
-import { useCity, useCoords } from "../../lib/city";
+import { useCoords, useCity } from "../../lib/city";
 import { formatFee, teachingModeLabel } from "../../lib/format";
-import AreaAutocomplete from "../../components/AreaAutocomplete";
+import LocationAutocomplete from "../../components/LocationAutocomplete";
 import type { Category } from "../../lib/types";
 
 interface FormState {
@@ -274,61 +272,64 @@ export default function Register() {
 
           {step === 1 && (
             <View className="gap-4">
+              {/* City — autocomplete, cities only */}
               <Field label="City *">
-                <Input
+                <LocationAutocomplete
                   value={form.city}
                   onChangeText={(v) => set("city", v)}
-                  placeholder="Your city"
-                />
-                <Text className="mt-2 font-body text-xs text-text-muted">
-                  Popular — tap to pick:
-                </Text>
-                <View className="mt-1 flex-row flex-wrap gap-2">
-                  {MAJOR_INDIAN_CITIES.map((c) => (
-                    <Pressable
-                      key={c}
-                      onPress={() => set("city", c)}
-                      className={`rounded-full border px-3 py-1 ${
-                        form.city === c ? "border-purple bg-purple" : "border-brand-border bg-white"
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs ${form.city === c ? "font-semibold text-white" : "text-purple"}`}
-                      >
-                        {c}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </Field>
-              <Field label="Area / Locality *">
-                <AreaAutocomplete
-                  value={form.area}
-                  onChangeText={(v) => set("area", v)}
-                  placeholder="Start typing your area…"
-                  cityBias={form.city}
+                  onSelect={(loc) => {
+                    // Always use the resolved city name, never raw text
+                    set("city", loc.city);
+                    // Clear area when city changes
+                    set("area", "");
+                  }}
+                  placeholder="Type your city…"
                   coordBias={coords}
+                  citiesOnly
                   wrapperClassName=""
                 />
-                {getAreasForCity(form.city).length > 0 && (
-                  <>
-                    <Text className="mt-2 font-body text-xs text-text-muted">
-                      Popular areas in {form.city}:
-                    </Text>
-                    <View className="mt-1 flex-row flex-wrap gap-2">
-                      {getAreasForCity(form.city).map((a) => (
-                        <Pressable
-                          key={a}
-                          onPress={() => set("area", a)}
-                          className="rounded-full bg-surface px-3 py-1"
-                        >
-                          <Text className="text-xs text-purple">{a}</Text>
-                        </Pressable>
-                      ))}
+                {form.city ? (
+                  <View className="mt-2 flex-row items-center gap-1.5">
+                    <View className="rounded-full bg-purple/10 px-3 py-1">
+                      <Text className="text-xs font-semibold text-purple">🏙️ {form.city}</Text>
                     </View>
-                  </>
+                    <Pressable onPress={() => { set("city", ""); set("area", ""); }}>
+                      <Text className="text-xs text-text-muted">Change</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Text className="mt-1 font-body text-xs text-text-muted">
+                    Start typing to search Indian cities
+                  </Text>
                 )}
               </Field>
+
+              {/* Area — only shown after city is selected */}
+              {form.city ? (
+                <Field label="Area / Locality *">
+                  <LocationAutocomplete
+                    value={form.area}
+                    onChangeText={(v) => set("area", v)}
+                    onSelect={(loc) => {
+                      // If user picks a city-level from area box, update city too
+                      if (loc.type === "city") {
+                        set("city", loc.city);
+                        set("area", "");
+                      } else {
+                        set("area", loc.area ?? loc.displayName);
+                        if (loc.city && loc.city !== form.city) set("city", loc.city);
+                      }
+                    }}
+                    placeholder={`Area in ${form.city}…`}
+                    coordBias={coords}
+                    wrapperClassName=""
+                  />
+                  <Text className="mt-1 font-body text-xs text-text-muted">
+                    E.g. Satellite, Bopal, Navrangpura
+                  </Text>
+                </Field>
+              ) : null}
+
               <Field label="Pincode">
                 <Input
                   value={form.pincode}

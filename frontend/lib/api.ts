@@ -44,8 +44,9 @@ function authHeader() {
 export interface CoachFilters {
   skill?: string;
   area?: string;
-  category?: string; // slug
-  city?: string;
+  city?: string;           // undefined = no city filter (all cities)
+  locationType?: "city" | "area";  // drives backend location logic
+  category?: string;       // slug
   minFee?: number;
   maxFee?: number;
   teachingMode?: string;
