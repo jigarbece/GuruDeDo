@@ -8,19 +8,21 @@ import HowItWorks from "../../components/HowItWorks";
 import Footer from "../../components/Footer";
 import { CategoryApi, CoachApi, buildWhatsAppLink } from "../../lib/api";
 import { CATEGORIES } from "../../constants/categories";
+import { useCity } from "../../lib/city";
 import type { Category, Coach } from "../../lib/types";
 
 export default function Home() {
   const router = useRouter();
+  const city = useCity();
   const [categories, setCategories] = useState<Category[]>(CATEGORIES as Category[]);
   const [featured, setFeatured] = useState<Coach[]>([]);
 
   useEffect(() => {
     CategoryApi.list().then(setCategories).catch(() => {});
-    CoachApi.list({ featured: true, pageSize: 8 })
+    CoachApi.list({ featured: true, city, pageSize: 8 })
       .then((r) => setFeatured(r.items))
       .catch(() => {});
-  }, []);
+  }, [city]);
 
   const goSearch = (skill: string, area: string) =>
     router.push({ pathname: "/search", params: { skill, area } });
@@ -58,7 +60,7 @@ export default function Home() {
             <SearchBar onSearch={goSearch} />
           </View>
           <Text className="mt-3 font-body text-sm text-text-muted">
-            Trusted by coaches across Ahmedabad 🇮🇳
+            Showing coaches in {city} · Trusted across India 🇮🇳
           </Text>
         </View>
       </View>
@@ -108,7 +110,7 @@ export default function Home() {
         <View className="mx-auto w-full max-w-5xl flex-row flex-wrap justify-around gap-6">
           <Stat number="500+" label="Coaches" />
           <Stat number="12" label="Skill Categories" />
-          <Stat number="Ahmedabad" label="& Growing" />
+          <Stat number="All India" label="🇮🇳 & Growing" />
           <Stat number="Free" label="to Join" />
         </View>
       </View>

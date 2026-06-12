@@ -26,7 +26,7 @@ export default function SearchBar({ initialSkill = "", initialArea = "", onSearc
       <TextInput
         value={area}
         onChangeText={setArea}
-        placeholder="Bopal, Satellite, Navrangpura..."
+        placeholder="Your area or locality"
         placeholderTextColor="#9CA3AF"
         onSubmitEditing={submit}
         className="flex-1 rounded-xl border border-brand-border px-4 py-3 font-body text-base text-text-dark"

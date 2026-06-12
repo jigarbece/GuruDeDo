@@ -17,7 +17,7 @@ export default function Root({ children }: PropsWithChildren) {
         <title>Gurudedo — Find the Right Teacher. Learn Any Skill.</title>
         <meta
           name="description"
-          content="Find the perfect coach for any skill — near you, right now. Academics, music, dance, yoga, art, cooking, beauty, coding & more in Ahmedabad."
+          content="Find the perfect coach for any skill — near you, right now. Academics, music, dance, yoga, art, cooking, beauty, coding & more, all across India."
         />
         <meta name="theme-color" content="#5B2C8C" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

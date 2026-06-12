@@ -6,6 +6,7 @@ import CoachCard from "../../components/CoachCard";
 import Footer from "../../components/Footer";
 import { CategoryApi, CoachApi, buildWhatsAppLink, type CoachFilters } from "../../lib/api";
 import { CATEGORIES, TEACHING_MODES } from "../../constants/categories";
+import { useCity } from "../../lib/city";
 import type { Category, Coach } from "../../lib/types";
 
 const FEE_PRESETS = [
@@ -27,6 +28,7 @@ const PAGE_SIZE = 12;
 export default function Search() {
   const router = useRouter();
   const params = useLocalSearchParams<{ skill?: string; area?: string; category?: string }>();
+  const city = useCity();
 
   const [categories, setCategories] = useState<Category[]>(CATEGORIES as Category[]);
   const [skill, setSkill] = useState(params.skill ?? "");
@@ -52,6 +54,7 @@ export default function Search() {
       return {
         skill: skill || undefined,
         area: area || undefined,
+        city,
         category,
         teachingMode: teachingMode === "all" ? undefined : teachingMode,
         minFee: fee.min,
@@ -62,7 +65,7 @@ export default function Search() {
         pageSize: PAGE_SIZE,
       };
     },
-    [skill, area, category, teachingMode, feeIdx, demoOnly, sort]
+    [skill, area, city, category, teachingMode, feeIdx, demoOnly, sort]
   );
 
   const load = useCallback(

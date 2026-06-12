@@ -4,14 +4,15 @@ import { useRouter } from "expo-router";
 import Footer from "../../components/Footer";
 import { CategoryApi, CoachApi } from "../../lib/api";
 import {
-  AHMEDABAD_AREAS,
-  CITIES,
+  MAJOR_INDIAN_CITIES,
+  getAreasForCity,
   FEE_TYPES,
   GENDERS,
   LANGUAGES,
   TEACHING_MODES,
   CATEGORIES,
 } from "../../constants/categories";
+import { useCity } from "../../lib/city";
 import { formatFee, teachingModeLabel } from "../../lib/format";
 import type { Category } from "../../lib/types";
 
@@ -63,9 +64,12 @@ const STEPS = ["Basic Info", "Location", "Skill & Teaching", "Preview & Submit"]
 
 export default function Register() {
   const router = useRouter();
+  const currentCity = useCity();
   const [categories, setCategories] = useState<Category[]>(CATEGORIES as Category[]);
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormState>(initial);
+  // Default the registration's city to whatever the user has selected globally,
+  // so a Mumbai user doesn't have to retype it.
+  const [form, setForm] = useState<FormState>({ ...initial, city: currentCity });
   const [skillInput, setSkillInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -269,35 +273,62 @@ export default function Register() {
           {step === 1 && (
             <View className="gap-4">
               <Field label="City *">
-                <ChipRow
-                  options={CITIES.map((c) => ({ value: c, label: c }))}
-                  selected={[form.city]}
-                  onToggle={(v) => set("city", v)}
+                <Input
+                  value={form.city}
+                  onChangeText={(v) => set("city", v)}
+                  placeholder="Your city"
                 />
+                <Text className="mt-2 font-body text-xs text-text-muted">
+                  Popular — tap to pick:
+                </Text>
+                <View className="mt-1 flex-row flex-wrap gap-2">
+                  {MAJOR_INDIAN_CITIES.map((c) => (
+                    <Pressable
+                      key={c}
+                      onPress={() => set("city", c)}
+                      className={`rounded-full border px-3 py-1 ${
+                        form.city === c ? "border-purple bg-purple" : "border-brand-border bg-white"
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs ${form.city === c ? "font-semibold text-white" : "text-purple"}`}
+                      >
+                        {c}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </Field>
               <Field label="Area / Locality *">
                 <Input
                   value={form.area}
                   onChangeText={(v) => set("area", v)}
-                  placeholder="Bopal, Satellite, Navrangpura..."
+                  placeholder="Your area or locality"
                 />
-                <View className="mt-2 flex-row flex-wrap gap-2">
-                  {AHMEDABAD_AREAS.map((a) => (
-                    <Pressable
-                      key={a}
-                      onPress={() => set("area", a)}
-                      className="rounded-full bg-cream px-3 py-1"
-                    >
-                      <Text className="text-xs text-purple">{a}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+                {getAreasForCity(form.city).length > 0 && (
+                  <>
+                    <Text className="mt-2 font-body text-xs text-text-muted">
+                      Popular areas in {form.city}:
+                    </Text>
+                    <View className="mt-1 flex-row flex-wrap gap-2">
+                      {getAreasForCity(form.city).map((a) => (
+                        <Pressable
+                          key={a}
+                          onPress={() => set("area", a)}
+                          className="rounded-full bg-surface px-3 py-1"
+                        >
+                          <Text className="text-xs text-purple">{a}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </>
+                )}
               </Field>
               <Field label="Pincode">
                 <Input
                   value={form.pincode}
                   onChangeText={(v) => set("pincode", v)}
-                  placeholder="380001"
+                  placeholder="e.g. 380001"
                   keyboardType="number-pad"
                 />
               </Field>
